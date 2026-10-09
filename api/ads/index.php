@@ -40,7 +40,7 @@ try {
         $q = $db->prepare($select.' WHERE a.id=?'); $q->execute([$id]); $ad = $q->fetch();
         if (!$ad) respond(404,['error'=>'Advertisement not found']);
     }
-    if ($method === 'GET') respond(200, $id === null ? $db->query($select.' ORDER BY a.created_at DESC, a.id DESC')->fetchAll() : $ad);
+    if ($method === 'GET') respond(200, $id === null ? $db->query($select.' ORDER BY a.id DESC')->fetchAll() : $ad);
     if ($method === 'DELETE') {
         $q=$db->prepare('DELETE FROM advertisements WHERE id=?'); $q->execute([$id]); respond(204,null);
     }

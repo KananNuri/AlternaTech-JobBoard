@@ -24,6 +24,32 @@ if (preg_match('~^/api/auth/google(?:/|$)~', $path)) {
     return true;
 }
 
+if (preg_match('~^/api/companies/mine/?$~', $path)) {
+    require __DIR__ . '/companies/mine.php';
+    return true;
+}
+
+if (preg_match('~^/api/companies/mine/ads/?$~', $path)) {
+    require __DIR__ . '/companies/mine-ads.php';
+    return true;
+}
+
+if (preg_match('~^/api/companies/mine/applications/?$~', $path)) {
+    require __DIR__ . '/applications/company.php';
+    return true;
+}
+
+if (preg_match('~^/api/applications/mine/?$~', $path)) {
+    require __DIR__ . '/applications/index.php';
+    return true;
+}
+
+if (preg_match('~^/api/ads/([1-9][0-9]*)/applications/?$~', $path, $matches)) {
+    $_GET['advertisement_id'] = $matches[1];
+    require __DIR__ . '/applications/index.php';
+    return true;
+}
+
 if (preg_match('~^/api/ads(?:/|$)~', $path)) {
     require __DIR__ . '/ads/index.php';
     return true;

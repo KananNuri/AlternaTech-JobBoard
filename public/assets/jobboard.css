@@ -40,3 +40,43 @@
     padding: 12px 18px 24px;
   }
 }
+
+#recruiter-area {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 24px 24px;
+}
+
+#recruiter-area[hidden] {
+  display: none;
+}
+
+#recruiter-area h2 {
+  margin: 0 0 12px;
+}
+
+#recruiter-status {
+  margin: 0 0 12px;
+  color: #516079;
+}
+
+#recruiter-companies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#recruiter-companies p {
+  margin: 0;
+  padding: 8px 14px;
+  background: white;
+  border: 1px solid #dce2ec;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  #recruiter-area {
+    padding: 12px 18px 24px;
+  }
+}

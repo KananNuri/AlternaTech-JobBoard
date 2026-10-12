@@ -1,6 +1,7 @@
 "use strict";
 const jobs = document.querySelector('#jobs'), details = document.querySelector('#details'), status = document.querySelector('#status'), retry = document.querySelector('#retry');
 let controller;
+let boardPage=1, boardFilters={};
 function el(tag, text, className) {
   const node = document.createElement(tag); node.textContent = text ?? ''; if (className) node.className = className; return node;
 }
@@ -29,12 +30,24 @@ async function showDetails(id) {
 async function load() {
   retry.hidden=true; status.textContent='Loading opportunities…'; jobs.replaceChildren();
   try {
-    const ads = await get('/api/ads');
-    status.textContent=ads.length ? `${ads.length} opportunities to explore` : 'No opportunities available yet.';
+    const params=new URLSearchParams({...boardFilters,page:boardPage,per_page:10});
+    const result = await get('/api/catalog/ads?'+params);
+    const ads=result.items;
+    status.textContent=result.total ? `${result.total} opportunities to explore` : 'No opportunities match your search.';
     for(const ad of ads) {
       const card=el('article',null,'card'); card.append(el('p',ad.contract_type || 'Opportunity','badge'),el('h2',ad.title),el('p',`${ad.company} · ${ad.location}`,'meta'),el('p',ad.short_description));
-      const button=el('button','Learn More'); button.setAttribute('aria-label',`Learn More: ${ad.title}`); button.onclick=()=>showDetails(ad.id); card.append(button); jobs.append(card);
+      const button=el('button','Learn More'); button.setAttribute('aria-label',`Learn More: ${ad.title}`); button.onclick=()=>showDetails(ad.id);
+      const apply=el('button','Apply');apply.setAttribute('aria-label',`Apply: ${ad.title}`);apply.onclick=async()=>{await showDetails(ad.id);document.dispatchEvent(new CustomEvent('alternatech:apply',{detail:{advertisement:ad}}));};
+      const actions=el('div',null,'actions');actions.append(button,apply);card.append(actions); jobs.append(card);
     }
+    renderPagination(result);
   } catch(error) {status.textContent=error.message; retry.hidden=false;}
 }
 retry.onclick=load; load();
+function renderPagination(result){
+  document.querySelector('#board-pagination')?.remove();
+  const nav=el('nav',null,'pagination');nav.id='board-pagination';nav.setAttribute('aria-label','Job pages');
+  const prev=el('button','Previous'),next=el('button','Next');prev.disabled=result.page<=1;next.disabled=result.page>=result.pages;
+  prev.onclick=()=>{boardPage--;load();};next.onclick=()=>{boardPage++;load();};nav.append(prev,el('span',`Page ${result.page} of ${result.pages}`),next);jobs.after(nav);
+}
+document.addEventListener('alternatech:filters',event=>{boardFilters=event.detail;boardPage=1;load();});

@@ -6,3 +6,4 @@
 Thumbs.db
 vendor/
 node_modules/
+tests/.runtime-fixtures.json

@@ -49,7 +49,7 @@ function googleClaimsFromExchange(string $idToken, string $client, string $nonce
     return $c;
 }
 function googleUser(PDO $db, array $claims): array {
-    $q=$db->prepare('SELECT u.id,u.firstname,u.lastname,u.email,u.role FROM google_identities g JOIN users u ON u.id=g.user_id WHERE g.google_sub=?');
+    $q=$db->prepare('SELECT u.id,u.firstname,u.lastname,u.email,u.phone,u.role FROM google_identities g JOIN users u ON u.id=g.user_id WHERE g.google_sub=?');
     $q->execute([$claims['sub']]);
     if ($user=$q->fetch()) return $user;
     $db->beginTransaction();
@@ -67,7 +67,7 @@ function googleUser(PDO $db, array $claims): array {
     } catch (Throwable $e) {
         if ($db->inTransaction()) $db->rollBack();
         if ($e instanceof PDOException && $e->getCode()==='23000') {
-            $q=$db->prepare('SELECT u.id,u.firstname,u.lastname,u.email,u.role FROM google_identities g JOIN users u ON u.id=g.user_id WHERE g.google_sub=?');$q->execute([$claims['sub']]);
+            $q=$db->prepare('SELECT u.id,u.firstname,u.lastname,u.email,u.phone,u.role FROM google_identities g JOIN users u ON u.id=g.user_id WHERE g.google_sub=?');$q->execute([$claims['sub']]);
             if ($user=$q->fetch()) return $user;
             throw new GoogleAccountConflict('Explicit account linking required');
         }

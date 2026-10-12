@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS people (
     phone VARCHAR(30) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
+    UNIQUE KEY unique_person_account (user_id),
+
     CONSTRAINT fk_people_user
         FOREIGN KEY (user_id)
         REFERENCES users(id)
@@ -89,6 +91,7 @@ CREATE TABLE IF NOT EXISTS advertisements (
 
     external_id VARCHAR(100) NULL,
     source_url VARCHAR(500) NULL,
+    created_by INT UNSIGNED NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -102,6 +105,11 @@ CREATE TABLE IF NOT EXISTS advertisements (
     CONSTRAINT fk_advertisement_category
         FOREIGN KEY (category_id)
         REFERENCES categories(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_ad_creator
+        FOREIGN KEY (created_by)
+        REFERENCES people(id)
         ON DELETE SET NULL,
 
     UNIQUE KEY unique_external_job (source, external_id)
@@ -126,6 +134,9 @@ CREATE TABLE IF NOT EXISTS applications (
     ) NOT NULL DEFAULT 'pending',
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    application_date TIMESTAMP GENERATED ALWAYS AS (created_at) VIRTUAL,
+
+    UNIQUE KEY unique_person_ad (person_id, advertisement_id),
 
     CONSTRAINT fk_application_advertisement
         FOREIGN KEY (advertisement_id)
@@ -137,3 +148,20 @@ CREATE TABLE IF NOT EXISTS applications (
         REFERENCES people(id)
         ON DELETE CASCADE
 );
+
+-- Recruiter authorization used by Charles's unchanged handlers.
+CREATE TABLE IF NOT EXISTS company_members (
+    company_id INT UNSIGNED NOT NULL,
+    person_id INT UNSIGNED NOT NULL,
+    role ENUM('recruiter') NOT NULL DEFAULT 'recruiter',
+    PRIMARY KEY (company_id, person_id),
+    CONSTRAINT fk_member_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_member_person FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS google_identities (
+    google_sub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_google_identity_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

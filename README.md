@@ -36,7 +36,7 @@ Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enab
 - `/login.php`: email/password and optional Google sign-in. Admins go to administration; others return to the board.
 - `/account.php`: create/edit first/last name, email, phone and password. Email/password changes require the current local password. Google-only accounts can edit name/phone; verified account linking/password recovery is a future feature.
 - `/admin.php`: server-protected administration with paginated CRUD for all eight tables, relationship checks and inline deletion confirmation. Active admins cannot delete/demote themselves. Manage linked profiles through their user account.
-- Charles's existing recruiter panel remains on the board. integration.js supplies its missing Edit callback; recruiters can also see candidate contacts/messages and change statuses within their companies.
+- Charles's existing recruiter panel remains on the board. integration.js supplies its missing Edit callback and lets recruiters publish, fully edit and delete advertisements for their assigned companies (deletion is confirmed inline and also removes the advertisement's applications); validation errors are shown next to the affected fields, while authorization, session and other errors are shown in the form's message area. Recruiters can also see candidate contacts/messages and change statuses within their companies.
 
 Applications/messages are saved in SQL and visible to authorized recruiters/admins. No SMTP service is configured; the app does not claim to send email.
 

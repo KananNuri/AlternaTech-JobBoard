@@ -148,6 +148,23 @@ function createClient() {
     }),
   });
 
+  // 9. Chaque candidat ne voit que ses propres candidatures.
+  const aliceApplications = await alice.request('/api/applications/mine', 200);
+  const bobApplications = await bob.request('/api/applications/mine', 200);
+
+  assert.ok(Array.isArray(aliceApplications.applications));
+  assert.ok(Array.isArray(bobApplications.applications));
+
+  assert.ok(
+    aliceApplications.applications.some(item => item.id === 3),
+    'Alice should see her own test application'
+  );
+
+  assert.ok(
+    bobApplications.applications.every(item => item.id !== 3),
+    'Bob must not see Alice’s test application'
+  );
+
   console.log(
     'PASS application HTTP checks: authentication, sessions, recruiter permissions, CSRF'
   );

@@ -148,7 +148,7 @@ function createClient() {
     }),
   });
 
-  // 9. Chaque candidat ne voit que ses propres candidatures.
+  // 9. Alice voit sa candidature, mais Bob ne la voit pas.
   const aliceApplications = await alice.request('/api/applications/mine', 200);
   const bobApplications = await bob.request('/api/applications/mine', 200);
 
@@ -165,8 +165,50 @@ function createClient() {
     'Bob must not see Alice’s test application'
   );
 
+  // 10. Bob peut postuler une fois à l'annonce 2, mais pas deux fois.
+  const advertisementId = 2;
+  const message = 'Candidature de test automatisé';
+
+  assert.ok(
+    !bobApplications.applications.some(
+      item => item.advertisement_id === advertisementId
+    ),
+    'Bob must not already have applied to advertisement 2'
+  );
+
+  const createApplication = () => bob.request('/api/applications/mine', 201, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': bob.csrfToken(),
+    },
+    body: JSON.stringify({
+      advertisement_id: advertisementId,
+      message,
+    }),
+  });
+
+  const created = await createApplication();
+
+  assert.equal(created.person_id, 3);
+  assert.equal(created.advertisement_id, advertisementId);
+  assert.equal(created.message, message);
+  assert.equal(created.status, 'pending');
+
+  await bob.request('/api/applications/mine', 409, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': bob.csrfToken(),
+    },
+    body: JSON.stringify({
+      advertisement_id: advertisementId,
+      message,
+    }),
+  });
+
   console.log(
-    'PASS application HTTP checks: authentication, sessions, recruiter permissions, CSRF'
+    'PASS application HTTP checks: authentication, sessions, recruiter permissions, CSRF, candidate isolation, application creation and duplicate rejection'
   );
 })().catch(error => {
   console.error(error);

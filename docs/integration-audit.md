@@ -44,7 +44,7 @@ PHP 8.4.25 with an isolated MariaDB 11.4.5 server on localhost:
 - Browser: guest Apply saved, admin login redirected, admin company creation/editing persisted, Charles's recruiter Edit button saved/restored an advertisement with its contract retained, and shared logout returned to the guest board. Browser error/warning logs were empty for admin and recruiter checks.
 - Final counts: 127 integration HTTP checks, 23 integrated advertisement HTTP checks, 25 unchanged Charles advertisement HTTP checks, 11 original application HTTP requests, 15 Google HTTP checks, 10 advertisement validation checks, 24 Google claim/state/config checks, 7 Google database checks (242 checks total), plus PHP/JavaScript syntax and setup/migration verification.
 - Charles's ad smoke test explicitly expects 10 offers; it passed against a separate 10-offer disposable DB/server. Standard integration/ad tests used the 20-offer demo. No test file was edited to conceal a fixture difference.
-- Charles's latest application test passed unchanged against its separate Alice/Bob/TechNova/application-3 fixture, with account IDs 1/3 and deliberately separate profile IDs 101/103. The fixture helper refuses populated account tables and requires a disposable *_test database.
+- Charles's latest application test passed unchanged against its separate Alice/Bob/TechNova/application-3 fixture, with account IDs 1/3 and matching profile IDs 1/3 in this dedicated test database. The fixture helper refuses populated account tables and requires a disposable *_test database.
 - Preservation check: git diff against 70be160 for all 16 paths touched by Charles returned no changes. Kanan's 91fd292 commit remains an ancestor of the integrated main history.
 
 ## Limits

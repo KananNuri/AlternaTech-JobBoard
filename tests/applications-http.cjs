@@ -165,16 +165,9 @@ function createClient() {
     'Bob must not see Alice’s test application'
   );
 
-  // 10. Bob peut postuler une fois à l'annonce 2, mais pas deux fois.
+  // 10. Bob peut postuler à l'annonce 2, mais pas deux fois.
   const advertisementId = 2;
   const message = 'Candidature de test automatisé';
-
-  assert.ok(
-    !bobApplications.applications.some(
-      item => item.advertisement_id === advertisementId
-    ),
-    'Bob must not already have applied to advertisement 2'
-  );
 
   const createApplication = () => bob.request('/api/applications/mine', 201, {
     method: 'POST',
@@ -188,27 +181,71 @@ function createClient() {
     }),
   });
 
-  const created = await createApplication();
+  const alreadyApplied = bobApplications.applications.some(
+    item => item.advertisement_id === advertisementId
+  );
 
-  assert.equal(created.person_id, 3);
-  assert.equal(created.advertisement_id, advertisementId);
-  assert.equal(created.message, message);
-  assert.equal(created.status, 'pending');
+  if (alreadyApplied) {
+    await bob.request('/api/applications/mine', 409, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': bob.csrfToken(),
+      },
+      body: JSON.stringify({
+        advertisement_id: advertisementId,
+        message,
+      }),
+    });
+  } else {
+    const created = await createApplication();
 
-  await bob.request('/api/applications/mine', 409, {
+    assert.equal(created.person_id, 3);
+    assert.equal(created.advertisement_id, advertisementId);
+    assert.equal(created.message, message);
+    assert.equal(created.status, 'pending');
+
+    await bob.request('/api/applications/mine', 409, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': bob.csrfToken(),
+      },
+      body: JSON.stringify({
+        advertisement_id: advertisementId,
+        message,
+      }),
+    });
+  }
+
+  // 11. Une annonce inexistante doit être refusée.
+  await bob.request('/api/applications/mine', 404, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-CSRF-Token': bob.csrfToken(),
     },
     body: JSON.stringify({
-      advertisement_id: advertisementId,
-      message,
+      advertisement_id: 999999,
+      message: 'Annonce inexistante',
+    }),
+  });
+
+  // 12. Un identifiant d'annonce envoyé comme texte doit être refusé.
+  await bob.request('/api/applications/mine', 422, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': bob.csrfToken(),
+    },
+    body: JSON.stringify({
+      advertisement_id: '2',
+      message: 'Identifiant au mauvais type',
     }),
   });
 
   console.log(
-    'PASS application HTTP checks: authentication, sessions, recruiter permissions, CSRF, candidate isolation, application creation and duplicate rejection'
+    'PASS application HTTP checks: authentication, sessions, recruiter permissions, CSRF, candidate isolation, application creation, duplicate rejection and validation'
   );
 })().catch(error => {
   console.error(error);

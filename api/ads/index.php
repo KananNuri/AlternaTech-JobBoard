@@ -199,9 +199,11 @@ try {
         header('Location: /api/ads/' . $id);
     } else {
         if ($method === 'PUT') {
-            foreach (['salary', 'working_time', 'contract_type', 'category_id'] as $field) {
-                $data[$field] ??= null;
+            if (!isset($data['category_id'])) {
+                respond(422, ['error' => 'category_id is required']);
             }
+
+            $data['salary'] ??= null;
         }
 
         $q = $db->prepare(
@@ -214,7 +216,9 @@ try {
     $q->execute([$id]);
     respond($method === 'POST' ? 201 : 200, $q->fetch());
 } catch (PDOException $e) {
-    error_log('Advertisements database failure; SQLSTATE ' . $e->getCode());    if ($e->getCode() === '23000') {
+    error_log('Advertisements database failure; SQLSTATE ' . $e->getCode());
+
+    if ($e->getCode() === '23000') {
         respond(409, ['error' => 'Database relationship conflict']);
     }
 

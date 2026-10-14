@@ -47,8 +47,13 @@ function profileFor(PDO $db, array $user): int {
     return $person;
 }
 function signIn(PDO $db, array $user): void {
-    startSession(); session_regenerate_id(true);
-    $_SESSION = ['account_id'=>(int)$user['id'],'user_id'=>profileFor($db,$user),'csrf_token'=>bin2hex(random_bytes(32)),'expires'=>time()+3600];
+    startSession(); $person = profileFor($db,$user);
+    // Fixation-safe without deleting the previous ID: it keeps only an "obsolete" marker (never an account), so a
+    // request still in flight with that cookie finds an anonymous session instead of an unknown ID. Deleting it made
+    // strict mode issue a fresh anonymous cookie that overwrote the new signed-in one in the browser.
+    $_SESSION = ['obsolete_at'=>time()];
+    session_regenerate_id(false);
+    $_SESSION = ['account_id'=>(int)$user['id'],'user_id'=>$person,'csrf_token'=>bin2hex(random_bytes(32)),'expires'=>time()+3600];
 }
 function currentUser(bool $required = true): ?array {
     startSession();

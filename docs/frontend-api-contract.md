@@ -196,6 +196,10 @@ Les valeurs de cet exemple sont fictives.
 
 Erreurs notables : `403` pour un jeton CSRF invalide, `404` si l'annonce n'existe pas, `422` pour des champs invalides. Un conflit de base de données peut produire `409`.
 
+Une seule candidature par annonce et par adresse e-mail : un visiteur reçoit `409` (`You have already applied to this advertisement`) si une candidature existe déjà pour cette annonce avec la même adresse, comparée sans espaces de bord et sans tenir compte de la casse, qu'elle vienne d'un visiteur ou d'un compte. Un utilisateur connecté n'est jamais bloqué par une candidature de visiteur (adresse non vérifiée) ; ses doublons restent refusés par l'unicité (profil, annonce).
+
+Seule la méthode `POST` est acceptée sur ce chemin : les autres méthodes, y compris `GET`, renvoient `405` avec `Allow: POST`.
+
 ### Consulter ses candidatures
 
 `GET /api/applications/mine`
@@ -406,4 +410,5 @@ Un `204` ne contient aucun JSON : le frontend ne doit pas essayer de parser son 
 2. `/api/companies/{id}/ads` utilise le catalogue paginé ; `/api/companies/mine/ads` renvoie un tableau brut.
 3. `/api/companies/mine/applications` renvoie les candidatures sans pagination ; `/api/recruiter/applications` fournit les coordonnées des candidats et une pagination.
 4. `POST /api/ads/{id}/applications` accepte les visiteurs dans le routeur intégré ; le handler historique de candidature attend un profil authentifié.
+   `POST /api/applications/mine` (handler historique, corps `{"advertisement_id": …}`) reste actif pour la suite `tests/applications-http.cjs` ; le frontend ne l'utilise pas et ne doit pas l'utiliser. La route de candidature du frontend est `POST /api/ads/{id}/applications`.
 5. Le frontend doit respecter les contrats existants et ne pas inventer de comportement côté serveur.

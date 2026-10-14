@@ -1,6 +1,7 @@
 "use strict";
 const jobs = document.querySelector('#jobs'), details = document.querySelector('#details'), status = document.querySelector('#status'), retry = document.querySelector('#retry');
 let controller;
+let catalogueController;
 let boardPage=1, boardFilters={}, selectedId=null;
 function el(tag, text, className) {
   const node = document.createElement(tag); node.textContent = text ?? ''; if (className) node.className = className; return node;
@@ -46,14 +47,17 @@ async function showDetails(id) {
     // Charles can subscribe to this event without coupling Apply to this renderer.
     document.dispatchEvent(new CustomEvent('alternatech:ad-selected',{detail:{advertisement:ad}}));
     details.focus();
+    return ad;
   } catch(error) { if(error.name === 'AbortError') return; details.replaceChildren(I18N.error(el('p'),error)); const button=tx('button','details.retry'); button.onclick=()=>showDetails(id); details.append(button); }
   finally { if (controller === current) details.removeAttribute('aria-busy'); }
 }
 async function load() {
+  catalogueController?.abort(); catalogueController=new AbortController(); const activeCatalogue=catalogueController;
   retry.hidden=true; setState('loading','board.loading'); jobs.replaceChildren(); jobs.setAttribute('aria-busy','true');
   try {
     const params=new URLSearchParams({...boardFilters,page:boardPage,per_page:10});
-    const result = await get('/api/catalog/ads?'+params);
+    const result = await get('/api/catalog/ads?'+params,activeCatalogue.signal);
+    if(activeCatalogue!==catalogueController) return;
     const ads=result.items;
     if (result.total) setState('ready','board.count',{count:Number(result.total)}); else setState('empty','board.empty');
     for(const ad of ads) {
@@ -61,12 +65,12 @@ async function load() {
       if(ad.contract_type) card.append(el('p',ad.contract_type,'badge'));
       card.append(el('h2',ad.title),el('p',`${ad.company} · ${ad.location}`,'meta'),el('p',ad.short_description));
       const button=tx('button','card.more',null,'secondary card-more'); I18N.attr(button,'aria-label','card.moreLabel',{title:ad.title}); button.onclick=()=>showDetails(ad.id);
-      const apply=tx('button','card.apply');I18N.attr(apply,'aria-label','card.applyLabel',{title:ad.title});apply.onclick=async()=>{await showDetails(ad.id);document.dispatchEvent(new CustomEvent('alternatech:apply',{detail:{advertisement:ad}}));};
+      const apply=tx('button','card.apply');I18N.attr(apply,'aria-label','card.applyLabel',{title:ad.title});apply.onclick=async()=>{const loaded=await showDetails(ad.id);if(!loaded)return;document.dispatchEvent(new CustomEvent('alternatech:apply',{detail:{advertisement:ad}}));};
       const actions=el('div',null,'actions');actions.append(button,apply);card.append(actions); jobs.append(card);
     }
     markSelected(); renderPagination(result);
-  } catch(error) {status.dataset.state='error'; I18N.error(status,error); retry.hidden=false; document.querySelector('#board-pagination')?.remove();}
-  finally { jobs.removeAttribute('aria-busy'); }
+  } catch(error) {if(error.name==='AbortError'||activeCatalogue!==catalogueController)return; status.dataset.state='error'; I18N.error(status,error); retry.hidden=false; document.querySelector('#board-pagination')?.remove();}
+  finally { if(activeCatalogue===catalogueController)jobs.removeAttribute('aria-busy'); }
 }
 retry.onclick=load; load();
 function renderPagination(result){

@@ -4,8 +4,10 @@
 // Refuses to run unless <url>/__isolation/db reports that exact database. Writes only to that disposable database.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const base = process.env.TEST_API_URL, expected = process.env.MIGRATION_TEST_DB_NAME;
+const base = require('../support/http-guard.cjs').installHttpGuard(), expected = process.env.MIGRATION_TEST_DB_NAME;
+assert.match(expected || '', /^[a-zA-Z0-9_]+_migration_test$/);
 const fx = JSON.parse(fs.readFileSync(__dirname + '/../.runtime-migration-fixtures.json', 'utf8'));
+require('../support/http-guard.cjs').verifyFixtures(fx);
 let checks = 0;
 class Client {
   cookie = ''; token = '';

@@ -11,8 +11,8 @@ try {
         if (!$q->fetch()) reply(404,['error'=>'Company not found']);
         $where[]='a.company_id=?'; $values[]=$company;
     }
-    if (isset($_GET['q'])) { $search=textField($_GET,'q',200,false); if ($search) { $where[]='(a.title LIKE ? OR a.description LIKE ? OR c.name LIKE ?)'; array_push($values,...array_fill(0,3,'%'.$search.'%')); } }
-    if (isset($_GET['location']) && $_GET['location']!=='') { $where[]='a.location LIKE ?'; $values[]='%'.textField($_GET,'location',150).'%'; }
+    if (isset($_GET['q'])) { $search=textField($_GET,'q',200,false); if ($search) { $where[]='(a.title LIKE ? ESCAPE \'!\' OR a.description LIKE ? ESCAPE \'!\' OR c.name LIKE ? ESCAPE \'!\')'; array_push($values,...array_fill(0,3,'%'.strtr($search,['!'=>'!!','%'=>'!%','_'=>'!_']).'%')); } }
+    if (isset($_GET['location']) && $_GET['location']!=='') { $where[]="a.location LIKE ? ESCAPE '!'"; $values[]='%'.strtr(textField($_GET,'location',150),['!'=>'!!','%'=>'!%','_'=>'!_']).'%'; }
     if (isset($_GET['category_id']) && $_GET['category_id']!=='') { $where[]='a.category_id=?'; $values[]=positiveId($_GET['category_id']); }
     $from=' FROM advertisements a JOIN companies c ON c.id=a.company_id LEFT JOIN categories cat ON cat.id=a.category_id';
     $clause=$where?' WHERE '.implode(' AND ',$where):'';

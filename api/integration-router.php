@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
-// Additive integration entry point. Charles's router and handlers stay byte-for-byte intact.
+// Canonical integration entry point, also used by the legacy router.
 require_once __DIR__.'/integration/common.php';
+if (!defined('ALTERNATECH_INTEGRATED_ROUTER')) define('ALTERNATECH_INTEGRATED_ROUTER',true);
 ini_set('display_errors','0');
 $path=rtrim(parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)??'','/');
 try {
@@ -18,6 +19,15 @@ try {
     }
     if (preg_match('~^/api/ads/([1-9][0-9]*)/applications$~',$path,$matches) && $_SERVER['REQUEST_METHOD']==='POST') {
         $GLOBALS['route_ad_id']=$matches[1]; require __DIR__.'/integration/apply.php'; return true;
+    }
+    if ($path==='/api/applications/mine' && $_SERVER['REQUEST_METHOD']==='POST') {
+        currentUser(); $body=jsonBody();
+        $GLOBALS['route_ad_id']=positiveId($body['advertisement_id']??null);
+        $GLOBALS['application_body']=$body; require __DIR__.'/integration/apply.php'; return true;
+    }
+    // Canonical auth is required even for legacy alias routes.
+    if (preg_match('~^/api/ads/[1-9][0-9]*/applications$~',$path)) {
+        methods(['POST']);
     }
     // Revalidate canonical accounts/expiry before entering Charles's protected routes.
     if (str_starts_with($path,'/api/companies/mine') || $path==='/api/applications/mine' || (preg_match('~^/api/ads(?:/|$)~',$path) && $_SERVER['REQUEST_METHOD']!=='GET')) {

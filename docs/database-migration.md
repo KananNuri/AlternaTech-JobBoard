@@ -120,3 +120,7 @@ migration: run `php tools/create-admin.php <existing-account-email>` for the acc
 The fixtures reproduce the historical structure with fictional rows only (`example.invalid`, hashes generated
 at run time). The real historical passwords are unknown, so real logins cannot be tested; Google OAuth needs
 real credentials and is covered by the synthetic `tests/google-db.php` only.
+
+## Guarded test runner
+
+All writing tests now require explicit DB_NAME, TEST_RUN_ID, and the shared database guard. HTTP tests additionally require TEST_DB_NAME and the test-only router/probe. Follow [test-isolation.md](test-isolation.md); old standalone invocations in this historical guide intentionally refuse to run without those settings. Normal application servers do not expose /__isolation/db.

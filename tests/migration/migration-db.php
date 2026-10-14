@@ -170,7 +170,7 @@ $blocked('unknown schema (missing table)', fn($db) => $db->exec('RENAME TABLE ap
 // Runtime fixture for tests/migration/migration-http.cjs: a freshly migrated database with an admin.
 $fx = $fresh(); [$code] = $apply(); check($code === 0, 'final migrated fixture for the HTTP test');
 tool(['tools/create-admin.php', 'historical-3@example.invalid']);
-file_put_contents($root . '/tests/.runtime-migration-fixtures.json', json_encode(['database' => $name, 'passwords' => $fx['passwords'], 'emails' => array_map(fn($i) => "historical-$i@example.invalid", [1 => 1, 2 => 2, 3 => 3, 4 => 4]), 'admin_profile' => 3], JSON_THROW_ON_ERROR));
+file_put_contents($root . '/tests/.runtime-migration-fixtures.json', json_encode(['database' => $name, 'test_run_id' => testRunId(), 'passwords' => $fx['passwords'], 'emails' => array_map(fn($i) => "historical-$i@example.invalid", [1 => 1, 2 => 2, 3 => 3, 4 => 4]), 'admin_profile' => 3], JSON_THROW_ON_ERROR));
 
 echo $failures ? "FAIL " . count($failures) . " of $checks migration DB checks\n" : "PASS $checks migration DB checks on $name\n";
 exit($failures ? 1 : 0);

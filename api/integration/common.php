@@ -37,11 +37,18 @@ function csrf(): void {
     if (!is_string($token) || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) reply(403, ['error'=>'Invalid CSRF token']);
 }
 function profileFor(PDO $db, array $user): int {
-    // One canonical account, one profile. Charles's unchanged handlers use the profile ID.
-    $q = $db->prepare('INSERT INTO people (user_id,firstname,lastname,email,phone) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE firstname=VALUES(firstname),lastname=VALUES(lastname),email=VALUES(email),phone=VALUES(phone)');
-    $q->execute([$user['id'],$user['firstname'],$user['lastname'],$user['email'],$user['phone'] ?? null]);
-    $q = $db->prepare('SELECT id FROM people WHERE user_id=?'); $q->execute([$user['id']]);
-    // Never hand out profile 0: if the upsert hit another unique key, the account has no linked profile.
+    $q=$db->prepare('SELECT id FROM people WHERE user_id=?'); $q->execute([$user['id']]);
+    $person=(int)$q->fetchColumn();
+    if (!$person) {
+        try {
+            $q=$db->prepare('INSERT INTO people (user_id,firstname,lastname,email,phone) VALUES (?,?,?,?,?)');
+            $q->execute([$user['id'],$user['firstname'],$user['lastname'],$user['email'],$user['phone']??null]);
+        } catch (PDOException $e) { if ($e->getCode()!=='23000') throw $e; }
+    }
+    $q=$db->prepare('UPDATE people SET firstname=?,lastname=?,email=?,phone=? WHERE user_id=?');
+    $q->execute([$user['firstname'],$user['lastname'],$user['email'],$user['phone']??null,$user['id']]);
+    $q=$db->prepare('SELECT id FROM people WHERE user_id=?'); $q->execute([$user['id']]);
+    // A unique-key race may be retried, but a missing canonical profile must never become ID 0.
     $person = (int)$q->fetchColumn();
     if ($person < 1) throw new RuntimeException('Account has no linked profile');
     return $person;
@@ -73,6 +80,7 @@ function positiveId(mixed $value): int {
 function textField(array $body, string $key, int $limit, bool $required = true): ?string {
     $v=$body[$key] ?? null;
     if (!$required && ($v===null || $v==='')) return null;
+    if ($key==='message' && is_string($v) && strlen($v)>60000) reply(422,['error'=>'Message must not exceed 60000 bytes']);
     if (!is_string($v) || !preg_match('//u',$v) || ($required && trim($v)==='') || iconv_strlen($v,'UTF-8')>$limit) reply(422,['error'=>"Invalid $key (maximum $limit characters)"]);
     return trim($v);
 }

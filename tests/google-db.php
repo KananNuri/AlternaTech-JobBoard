@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/support/database-guard.php';
+try { testDatabaseGuard('GOOGLE_TEST_DB'); } catch (Throwable $e) { fwrite(STDERR, $e->getMessage()."\n"); exit(2); }
 require dirname(__DIR__).'/api/auth/google/functions.php';
 if(getenv('GOOGLE_TEST_DB')!=='1'){fwrite(STDERR,"Set GOOGLE_TEST_DB=1 only for a disposable test database.\n");exit(2);}
 $db=database();$prefix='google-test-'.bin2hex(random_bytes(8));$claims=['sub'=>$prefix,'email'=>$prefix.'@example.invalid','given_name'=>'Test','family_name'=>'Google'];$ids=[];

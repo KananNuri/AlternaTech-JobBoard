@@ -90,31 +90,19 @@ France Travail: set its environment variables, enable curl/mbstring, and run `ph
 
 ## Tests
 
+See [test isolation and audit fixes](docs/test-isolation.md) for the complete guarded setup. Test databases, run identifiers and HTTP URLs must be explicit. Never use the development server on 8080/8086. The dedicated server must use `tests/support/router.php`, not the normal router.
+
+Checks without a database:
+
 ```powershell
-Get-ChildItem api,public,tools,tests -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
-Get-ChildItem public/assets -Filter *.js | ForEach-Object { node --check $_.FullName }
+node tests/isolation-guard.cjs
+node tests/catalogue-race.cjs
+php tests/auth-rate-limit.php
 php tests/ads-validation.php
 php tests/google-auth.php
 php tests/migration/schema-migration-unit.php
 ```
 
-Migration tests that write (`tests/migration/migration-db.php`, then `migration-http.cjs`) run only on a dedicated database whose name ends with `_migration_test`, with `MIGRATION_TEST_DB=1`; see [the migration guide](docs/database-migration.md).
+Integration suites use synthetic disposable data only. `ads-integrated-http.cjs` expects 20 demo offers and a company-1 test recruiter. Run it before `integration-http.cjs`, which cleans its fixture accounts. The original `ads-http.cjs` expects a separate 10-offer fixture. `applications-http.cjs` uses a separate fresh `alternatech_authorization_test`: set `INTEGRATION_TEST_DB=1`, `TEST_RUN_ID` and a private test-only `TEST_FIXTURE_PASSWORD`, run `tests/charles-authorization-fixtures.php`, then provide Alice/Bob test credentials and the guarded server URL to the HTTP test. `google-db.php` requires `GOOGLE_TEST_DB=1`; Google HTTP tests require dummy OAuth settings. Migration suites require a dedicated `*_migration_test` database. All of these suites now enforce the shared guard.
 
-Use **only an isolated disposable DB/server** with 20 demo offers for integration tests:
-
-```powershell
-$env:INTEGRATION_TEST_DB='1'
-$env:TEST_API_URL='http://127.0.0.1:8080'
-php tests/integration-fixtures.php
-$fixtures = Get-Content tests/.runtime-fixtures.json -Raw | ConvertFrom-Json
-$env:TEST_RECRUITER_EMAIL=$fixtures.recruiter.email
-$env:TEST_RECRUITER_PASSWORD=$fixtures.password
-node tests/ads-integrated-http.cjs
-node tests/integration-http.cjs
-```
-
-The gitignored fixture file contains random test credentials and only example.invalid accounts. Fixture reruns clean their preceding prefix. The integration suite cleans generated records and retains a test admin until fixture rerun. For `ads-integrated-http.cjs` (the standard 20-offer demo), set `TEST_RECRUITER_EMAIL`/`TEST_RECRUITER_PASSWORD` for a disposable company-1 recruiter; run before integration cleans it. Charles's unchanged `ads-http.cjs` expects exactly 10 local seed offers, so run it against a separate disposable 10-offer fixture rather than modifying the test or standard demo. `google-db.php` requires `GOOGLE_TEST_DB=1`; `google-http.cjs` requires curl and a dummy local OAuth configuration. Set `GOOGLE_HTTP_TEST_URL` for a custom server port; it never follows the provider redirect.
-
-Charles's unchanged `applications-http.cjs` expects canonical Alice/Bob IDs 1/3, company TechNova and application 3. For this test, initialize a separate fresh disposable database named `alternatech_authorization_test`, set `INTEGRATION_TEST_DB=1` and a test-only `TEST_FIXTURE_PASSWORD`, then run `php tests/charles-authorization-fixtures.php`. Run a separate local server against that DB. Set `TEST_RECRUITER_EMAIL=alice@example.invalid`, `TEST_USER_EMAIL=bob@example.invalid`, both corresponding password variables to `TEST_FIXTURE_PASSWORD`, and `TEST_API_URL` to that server before running the original test. These synthetic fixtures never overwrite an existing account database.
-
-[Requirement audit](docs/integration-audit.md).
+[Requirement audit](docs/integration-audit.md) records historical verification; [current fixes and remaining operational actions](docs/test-isolation.md) describe this branch.

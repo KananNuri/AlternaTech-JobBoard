@@ -140,7 +140,7 @@ function showSignedIn(user) {
       const session = await refreshPasswordSession();
 
       if (!session.csrf_token) {
-        throw new Error("Missing CSRF token.");
+        window.location.reload(); return;
       }
 
       const response = await fetch("/api/auth/logout", {

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const base = process.env.TEST_API_URL || 'http://127.0.0.1:8080';
+const base=require('./support/http-guard.cjs').installHttpGuard('TEST_API_URL');
 const email = process.env.TEST_RECRUITER_EMAIL;
 const password = process.env.TEST_RECRUITER_PASSWORD;
 

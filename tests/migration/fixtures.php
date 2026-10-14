@@ -12,7 +12,8 @@ function migrationTestGuard(): PDO {
     if (PHP_SAPI !== 'cli' || getenv('MIGRATION_TEST_DB') !== '1' || !preg_match('/^[a-zA-Z0-9_]+_migration_test$/D', $name)) {
         fwrite(STDERR, "Refused: set MIGRATION_TEST_DB=1 and DB_NAME=<name ending with _migration_test> (a disposable database).\n"); exit(2);
     }
-    $db = database();
+    require_once dirname(__DIR__).'/support/database-guard.php';
+    $db = testDatabaseGuard('MIGRATION_TEST_DB');
     if ($db->query('SELECT DATABASE()')->fetchColumn() !== $name) { fwrite(STDERR, "Refused: connected database differs from DB_NAME.\n"); exit(2); }
     return $db;
 }

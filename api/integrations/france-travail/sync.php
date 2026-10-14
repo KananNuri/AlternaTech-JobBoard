@@ -2,6 +2,7 @@
 declare(strict_types=1);
 // Optional CLI importer. This file is outside the public document root.
 require_once dirname(__DIR__, 2).'/config/database.php';
+require_once __DIR__.'/employers.php';
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 function requestJson(string $url, array $headers, ?array $form = null): array {
     $ch = curl_init($url);
@@ -26,21 +27,20 @@ try {
     $payload=requestJson('https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?'.http_build_query(['motsCles'=>$argv[1] ?? 'informatique','range'=>'0-49']),['Accept: application/json','Authorization: Bearer '.$token['access_token']]);
     $offers=$payload['resultats'] ?? null;
     if (!is_array($offers)) throw new RuntimeException('Missing resultats in API response');
-    $db=database(); $count=0; $db->beginTransaction();
-    $find=$db->prepare('SELECT id FROM companies WHERE name=? ORDER BY id LIMIT 1');
-    $company=$db->prepare('INSERT INTO companies (name,description) VALUES (?,?)');
+    $db=database(); $count=0;
+    if ((int)$db->query("SELECT GET_LOCK('alternatech-france-travail-import',0)")->fetchColumn()!==1) throw new RuntimeException('Another import is active');
+    $db->beginTransaction();
     $upsert=$db->prepare("INSERT INTO advertisements (company_id,title,short_description,description,location,contract_type,salary,working_time,source,external_id,source_url) VALUES (?,?,?,?,?,?,?,?,'FRANCE_TRAVAIL',?,?) ON DUPLICATE KEY UPDATE company_id=VALUES(company_id),title=VALUES(title),short_description=VALUES(short_description),description=VALUES(description),location=VALUES(location),contract_type=VALUES(contract_type),salary=VALUES(salary),working_time=VALUES(working_time),source_url=VALUES(source_url)");
     foreach ($offers as $offer) {
         if (!is_array($offer) || !is_string($offer['id'] ?? null) || $offer['id']==='' || strlen($offer['id'])>100 || empty($offer['intitule']) || empty($offer['description'])) continue;
-        // Existing imported company is reused. Companies API remains untouched.
+        // Reuse only the employer of this exact source offer. Homonymous names never link local companies.
         $name=clip($offer['entreprise']['nom'] ?? 'France Travail — undisclosed employer',150);
-        $find->execute([$name]); $companyId=$find->fetchColumn();
-        if (!$companyId) { $company->execute([$name,'Employer from France Travail']); $companyId=$db->lastInsertId(); }
+        $companyId=importedEmployer($db,$offer['id'],$name);
         $url=$offer['origineOffre']['urlOrigine'] ?? null;
         if (!is_string($url) || strlen($url)>500 || !filter_var($url,FILTER_VALIDATE_URL) || !in_array(parse_url($url,PHP_URL_SCHEME),['http','https'],true)) $url=null;
         $upsert->execute([$companyId,clip($offer['intitule'],200),clip($offer['description'],500),clip($offer['description'],16000),clip($offer['lieuTravail']['libelle'] ?? 'France',150),clip($offer['typeContratLibelle'] ?? $offer['typeContrat'] ?? '',100),clip($offer['salaire']['libelle'] ?? '',100),clip($offer['dureeTravailLibelle'] ?? '',100),$offer['id'],$url]); $count++;
     }
-    $db->commit(); echo "Synced $count offers.\n";
+    $db->commit(); $db->query("SELECT RELEASE_LOCK('alternatech-france-travail-import')"); echo "Synced $count offers.\n";
 } catch (Throwable $e) {
     if (isset($db) && $db->inTransaction()) $db->rollBack();
     // Never print OAuth responses, secrets, DSNs or database exception messages.

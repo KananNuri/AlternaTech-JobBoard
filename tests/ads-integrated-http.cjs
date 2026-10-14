@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const base=process.env.TEST_API_URL || 'http://127.0.0.1:8080';
+const base=require('./support/http-guard.cjs').installHttpGuard('TEST_API_URL');
 let cookie='',token='';
 let checks=0;
 async function req(path,status,method='GET',body,headers={}){
@@ -19,9 +19,9 @@ async function req(path,status,method='GET',body,headers={}){
  const ad=await req('/api/ads',201,'POST',valid);
  try {
   await req(`/api/ads/${ad.id}`,200);
-  const updated=await req(`/api/ads/${ad.id}`,200,'PATCH',{salary:'€35,000/year'}); assert.equal(updated.salary,'€35,000/year');
+  const updated=await req(`/api/ads/${ad.id}`,200,'PATCH',{salary:'€35,000/year',contract_type:'CDI'}); assert.equal(updated.salary,'€35,000/year');
   await req(`/api/ads/${ad.id}`,422,'PATCH',{category_id:null});
-  const replaced=await req(`/api/ads/${ad.id}`,200,'PUT',{...valid,title:'Replacement'}); assert.equal(replaced.salary,null);
+  const replaced=await req(`/api/ads/${ad.id}`,200,'PUT',{...valid,title:'Replacement'}); assert.equal(replaced.salary,null);assert.equal(replaced.contract_type,null);
   await req(`/api/ads/${ad.id}`,422,'PATCH',{source:'LOCAL'});
  } finally {await req(`/api/ads/${ad.id}`,204,'DELETE');}
  await req(`/api/ads/${ad.id}`,404);

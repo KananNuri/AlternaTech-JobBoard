@@ -204,6 +204,7 @@ try {
             }
 
             $data['salary'] ??= null;
+            $data['contract_type'] ??= null;
         }
 
         $q = $db->prepare(

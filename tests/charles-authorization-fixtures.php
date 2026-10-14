@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/support/database-guard.php';
+try { testDatabaseGuard('INTEGRATION_TEST_DB'); } catch (Throwable $e) { fwrite(STDERR, $e->getMessage()."\n"); exit(2); }
 require dirname(__DIR__).'/api/integration/common.php';
 if (PHP_SAPI!=='cli' || getenv('INTEGRATION_TEST_DB')!=='1' || !str_ends_with(envValue('DB_NAME'),'_test')) { fwrite(STDERR,"Use only a fresh disposable *_test database with INTEGRATION_TEST_DB=1.\n"); exit(2); }
 $password=getenv('TEST_FIXTURE_PASSWORD');

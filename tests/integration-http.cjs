@@ -1,7 +1,8 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const base=process.env.TEST_API_URL||'http://127.0.0.1:8086';
+const base=require('./support/http-guard.cjs').installHttpGuard('TEST_API_URL');
 const f=JSON.parse(fs.readFileSync(__dirname+'/.runtime-fixtures.json','utf8'));
+require('./support/http-guard.cjs').verifyFixtures(f);
 let checks=0;
 class Client {
   cookie=''; token='';
@@ -33,6 +34,9 @@ class Client {
   const guest=new Client();await guest.req('/api/auth/csrf');
   await guest.req('/api/ads/1/applications',422,'POST',{advertisement_id:2,firstname:'Test',lastname:'Guest',email:f.prefix+'-guest@example.invalid'});
   const application=await guest.req('/api/ads/1/applications',201,'POST',{firstname:'Test',lastname:'Guest',email:f.prefix+'-guest@example.invalid',phone:'0101010101',message:'Guest application'});f.guestPerson=application.person_id;
+  await guest.req('/api/ads/1/applications',409,'POST',{firstname:'Test',lastname:'Guest',email:f.prefix+'-guest@example.invalid'});
+  await anonymous.req('/api/ads/1/applications',405);
+  const literal=await anonymous.req('/api/catalog/ads?q=%25');assert.equal(literal.total,0);
   await candidate.login('candidate');const session=await candidate.req('/api/auth/session');assert.equal(session.user.person_id,f.candidate.person_id);assert.notEqual(session.user.id,session.user.person_id);
   const googleSession=await candidate.req('/api/auth/google/session');assert.equal(googleSession.user.id,session.user.id);
   const own=await candidate.req('/api/ads/1/applications',201,'POST',{message:'Account application'});

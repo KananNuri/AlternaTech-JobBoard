@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+// Every supported entry point uses canonical auth and session revalidation.
+if (!defined('ALTERNATECH_INTEGRATED_ROUTER')) return require __DIR__.'/integration-router.php';
+
 // Development server only: document root must be public/, never the repository root.
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 

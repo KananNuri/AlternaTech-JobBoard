@@ -1,4 +1,5 @@
-USE alternatech;
+-- Superseded by tools/migrate.php (step create-google-identities), which also checks the users.id type.
+-- Kept for history only; it no longer selects a database, so it cannot target the real one by accident.
 -- Additive optional migration; existing six core tables are unchanged.
 CREATE TABLE IF NOT EXISTS google_identities (
     google_sub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,

@@ -7,3 +7,6 @@ Thumbs.db
 vendor/
 node_modules/
 tests/.runtime-fixtures.json
+tests/.runtime-migration-fixtures.json
+# Database dumps at the repository root may hold personal data and credentials: never commit them.
+/*.sql

@@ -41,7 +41,10 @@ function profileFor(PDO $db, array $user): int {
     $q = $db->prepare('INSERT INTO people (user_id,firstname,lastname,email,phone) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE firstname=VALUES(firstname),lastname=VALUES(lastname),email=VALUES(email),phone=VALUES(phone)');
     $q->execute([$user['id'],$user['firstname'],$user['lastname'],$user['email'],$user['phone'] ?? null]);
     $q = $db->prepare('SELECT id FROM people WHERE user_id=?'); $q->execute([$user['id']]);
-    return (int)$q->fetchColumn();
+    // Never hand out profile 0: if the upsert hit another unique key, the account has no linked profile.
+    $person = (int)$q->fetchColumn();
+    if ($person < 1) throw new RuntimeException('Account has no linked profile');
+    return $person;
 }
 function signIn(PDO $db, array $user): void {
     startSession(); session_regenerate_id(true);

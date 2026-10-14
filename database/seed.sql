@@ -1,4 +1,4 @@
-USE alternatech;
+-- Run through tools/setup.php --demo, which selects the configured database first (no hard-coded USE).
 -- Fictional demonstration companies and vacancies; stable IDs make reruns safe.
 START TRANSACTION;
 INSERT INTO companies (id,name,description) VALUES (1,'Loire Digital Studio','Fictional French technology company supporting junior talent.') ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description);

@@ -10,12 +10,12 @@ async function refreshGoogleAccount() {
       googleAccount.hidden=true;
     } else {
       googleAccount.hidden=false;
-      const a=document.createElement('a');a.textContent='Continue with Google';
-      if(data.enabled){a.href='/api/auth/google/start';googleAccount.append(a);}else{googleAccount.textContent='Google sign-in is not configured yet.';}
+      const a=I18N.text(document.createElement('a'),'google.continue');
+      if(data.enabled){a.href='/api/auth/google/start';googleAccount.append(a);}else{googleAccount.append(I18N.text(document.createElement('span'),'google.notConfigured'));}
     }
     const result=new URLSearchParams(location.search).get('google_login');
-    if(result==='cancelled'){const message=document.createElement('span');message.textContent='Google sign-in was cancelled.';googleAccount.append(message);}
+    if(result==='cancelled'){const message=I18N.text(document.createElement('span'),'google.cancelled');googleAccount.append(message);}
     if(result){const url=new URL(location.href);url.searchParams.delete('google_login');history.replaceState(null,'',url);}
-  }catch{googleAccount.textContent='Google sign-in is temporarily unavailable.';}
+  }catch{googleAccount.replaceChildren(I18N.text(document.createElement('span'),'google.unavailable'));}
 }
 refreshGoogleAccount();

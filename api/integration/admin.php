@@ -52,7 +52,8 @@ try {
         if (!preg_match('/^[\x21-\x7E]{1,255}$/D',$key)) reply(422,['error'=>'Invalid identity']);
         $where='google_sub=?'; $ids=[$key];
     } else { $where='id=?'; $ids=$key!==null?[positiveId($key)]:[]; }
-    $columns=$table==='users'?'id,firstname,lastname,email,phone,role,created_at,updated_at':'*';
+    // Explicit lists: credentials never leave the server, including legacy people.password kept by the migration.
+    $columns=match($table){'users'=>'id,firstname,lastname,email,phone,role,created_at,updated_at','people'=>'id,user_id,firstname,lastname,email,phone,created_at',default=>'*'};
     if ($method==='GET' && $key===null) {
         [$page,$size,$offset]=pagination(); $total=(int)$db->query("SELECT COUNT(*) FROM $table")->fetchColumn();
         $order=$table==='company_members'?'company_id,person_id':($table==='google_identities'?'google_sub':'id DESC');

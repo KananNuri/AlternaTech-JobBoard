@@ -1,16 +1,18 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AlternaTech · Find your next opportunity</title><link rel="stylesheet" href="/assets/jobboard.css"><script src="/assets/jobboard.js" defer></script><script src="/assets/login.js" defer></script><script src="/assets/google-login.js" defer></script></head>
-<body><header><a href="/" class="brand">AlternaTech<span>JOB BOARD</span></a><span>IT · Data · AI · Cloud</span></header>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title data-i18n="title.board">AlternaTech · Find your next opportunity</title><link rel="stylesheet" href="/assets/jobboard.css"><script src="/assets/i18n.js" defer></script><script src="/assets/jobboard.js" defer></script><script src="/assets/login.js" defer></script><script src="/assets/google-login.js" defer></script></head>
+<body><header><a href="/" class="brand">AlternaTech<span>JOB BOARD</span></a><span data-i18n="site.tagline">IT · Data · AI · Cloud</span>
+<div class="account-menu"><button type="button" id="account-toggle" class="account-toggle" aria-expanded="false" aria-controls="account-panel" data-i18n="account.signIn">Sign in</button>
+<div id="account-panel" class="account-panel" hidden>
 
-<section id="google-account" aria-live="polite" aria-label="Google account">
-  Loading account…
+<section id="google-account" aria-live="polite" aria-label="Google account" data-i18n-attr='{"aria-label":["google.label",null]}'>
+  <span data-i18n="google.loading">Loading account…</span>
 </section>
 
 <section id="password-account" aria-labelledby="login-title">
-  <h2 id="login-title">Sign in with email</h2>
+  <h2 id="login-title" data-i18n="login.title">Sign in with email</h2>
 
   <form id="login-form">
-    <label for="login-email">Email</label>
+    <label for="login-email" data-i18n="field.email">Email</label>
     <input
       id="login-email"
       name="email"
@@ -20,7 +22,7 @@
       required
     >
 
-    <label for="login-password">Password</label>
+    <label for="login-password" data-i18n="field.password">Password</label>
     <input
       id="login-password"
       name="password"
@@ -29,17 +31,23 @@
       required
     >
 
-    <button type="submit">Sign in</button>
+    <button type="submit" data-i18n="login.submit">Sign in</button>
     <p id="login-status" role="status" aria-live="polite"></p>
   </form>
 </section>
+</div></div></header>
 
+<main><section class="intro"><p class="eyebrow" data-i18n="intro.eyebrow">Your next chapter starts here</p><h1 data-i18n="intro.title">Build your future. One opportunity at a time.</h1><p data-i18n="intro.text">Discover alternance, internships and junior technology roles across France.</p><small data-i18n="intro.demo">Demo listings are fictional examples for this project.</small></section>
+<div class="board"><div class="board-list"><p id="status" role="status" aria-live="polite" data-i18n="board.loading">Loading opportunities…</p><button id="retry" hidden data-i18n="board.retry">Try again</button>
+<section aria-label="Job opportunities" id="jobs" data-i18n-attr='{"aria-label":["board.listLabel",null]}'></section></div><section id="details" tabindex="-1" aria-label="Job details" data-i18n-attr='{"aria-label":["details.label",null]}'><h2 data-i18n="details.placeholderTitle">A closer look</h2><p data-i18n="details.placeholderText">Select Learn More to explore an opportunity.</p></section></div></main>
+<section id="my-space" class="my-space" hidden aria-labelledby="my-space-title">
+  <h2 id="my-space-title" data-i18n="mySpace.title">My space</h2>
+  <div class="my-space-grid">
 <section id="recruiter-area" hidden aria-labelledby="recruiter-title">
-  <h2 id="recruiter-title">Recruiter space</h2>
+  <h2 id="recruiter-title" data-i18n="recruiter.title">Recruiter space</h2>
   <p id="recruiter-status" role="status" aria-live="polite"></p>
   <div id="recruiter-companies"></div>
 </section>
-
-<main><section class="intro"><p class="eyebrow">YOUR NEXT CHAPTER STARTS HERE</p><h1>Build your future.<br>One opportunity at a time.</h1><p>Discover alternance, internships and junior technology roles across France.</p><small>Demo listings are fictional examples for this project.</small></section>
-<p id="status" role="status" aria-live="polite">Loading opportunities…</p><button id="retry" hidden>Try again</button>
-<div class="board"><section aria-label="Job opportunities" id="jobs"></section><section id="details" tabindex="-1" aria-label="Job details"><h2>A closer look</h2><p>Select Learn More to explore an opportunity.</p></section></div></main><footer>AlternaTech · Start small. Build something great.</footer></body></html>
+  </div>
+</section>
+<footer data-i18n="site.footer">AlternaTech · Start small. Build something great.</footer></body></html>

@@ -23,7 +23,7 @@ async function refreshPasswordSession() {
 
 async function loadRecruiterCompanies() {
   recruiterArea.hidden = false;
-  recruiterStatus.textContent = "Loading your companies...";
+  I18N.text(recruiterStatus, "recruiter.loadingCompanies");
   recruiterCompanies.replaceChildren();
 
   try {
@@ -39,12 +39,11 @@ async function loadRecruiterCompanies() {
     const companies = await response.json();
 
     if (companies.length === 0) {
-      recruiterStatus.textContent =
-        "You are not registered as a recruiter for any company.";
+      I18N.text(recruiterStatus, "recruiter.notRecruiter");
       return;
     }
 
-    recruiterStatus.textContent = "Your recruiter companies:";
+    I18N.text(recruiterStatus, "recruiter.yourCompanies");
 
     for (const company of companies) {
       const section = document.createElement("section");
@@ -55,7 +54,8 @@ async function loadRecruiterCompanies() {
 
       const adsContainer = document.createElement("div");
       adsContainer.className = "recruiter-ads";
-      adsContainer.textContent = "Loading advertisements...";
+      // Messages sit in a keyed child, so a language switch never overwrites the listed advertisements.
+      adsContainer.append(I18N.text(document.createElement("span"), "recruiter.loadingAds"));
 
       section.append(title, adsContainer);
       recruiterCompanies.append(section);
@@ -78,7 +78,7 @@ async function loadRecruiterCompanies() {
         adsContainer.replaceChildren();
 
         if (companyAds.length === 0) {
-          adsContainer.textContent = "No advertisements published yet.";
+          adsContainer.append(I18N.text(document.createElement("span"), "recruiter.noAds"));
           continue;
         }
 
@@ -93,11 +93,12 @@ async function loadRecruiterCompanies() {
           location.textContent = ad.location;
 
           const category = document.createElement("p");
-          category.textContent = ad.category || "Uncategorized";
+          if (ad.category) category.textContent = ad.category;
+          else I18N.text(category, "recruiter.uncategorized");
 
           const editButton = document.createElement("button");
           editButton.type = "button";
-          editButton.textContent = "Edit";
+          I18N.text(editButton, "recruiter.edit");
 
           editButton.addEventListener("click", () => {
             openEditForm(ad, article);
@@ -107,13 +108,11 @@ async function loadRecruiterCompanies() {
           adsContainer.append(article);
         }
       } catch {
-        adsContainer.textContent =
-          "Unable to load advertisements. Please try again.";
+        adsContainer.replaceChildren(I18N.text(document.createElement("span"), "recruiter.adsError"));
       }
     }
   } catch {
-    recruiterStatus.textContent =
-      "Unable to load your companies. Please try again.";
+    I18N.text(recruiterStatus, "recruiter.companiesError");
   }
 }
 
@@ -124,18 +123,18 @@ function showSignedIn(user) {
   passwordAccount.replaceChildren();
 
   const title = document.createElement("h2");
-  title.textContent = `Signed in as ${user.first_name} ${user.last_name}`;
+  I18N.text(title, "account.signedInAs", { name: `${user.first_name} ${user.last_name}` });
 
   const email = document.createElement("p");
   email.textContent = user.email;
 
   const logoutButton = document.createElement("button");
   logoutButton.type = "button";
-  logoutButton.textContent = "Sign out";
+  I18N.text(logoutButton, "account.signOut");
 
   logoutButton.addEventListener("click", async () => {
     logoutButton.disabled = true;
-    loginStatus.textContent = "";
+    I18N.raw(loginStatus, "");
 
     try {
       const session = await refreshPasswordSession();
@@ -160,7 +159,7 @@ function showSignedIn(user) {
       window.location.reload();
     } catch {
       logoutButton.disabled = false;
-      loginStatus.textContent = "Unable to sign out. Please try again.";
+      I18N.text(loginStatus, "account.signOutError");
     }
   });
 
@@ -174,7 +173,7 @@ loginForm.addEventListener("submit", async (event) => {
 
   const submitButton = loginForm.querySelector('button[type="submit"]');
   submitButton.disabled = true;
-  loginStatus.textContent = "Signing in...";
+  I18N.text(loginStatus, "login.signingIn");
 
   try {
     const body = {
@@ -195,16 +194,14 @@ loginForm.addEventListener("submit", async (event) => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Sign-in failed.");
+      throw data.error ? new Error(data.error) : I18N.translated("login.failed");
     }
 
     loginForm.reset();
     showSignedIn(data.user);
   } catch (error) {
-    loginStatus.textContent =
-      error.message === "Failed to fetch"
-        ? "Unable to reach the server. Please try again."
-        : error.message;
+    if (error.message === "Failed to fetch") I18N.text(loginStatus, "login.unreachable");
+    else I18N.error(loginStatus, error);
   } finally {
     submitButton.disabled = false;
   }
@@ -217,5 +214,5 @@ refreshPasswordSession()
     }
   })
   .catch(() => {
-    loginStatus.textContent = "Unable to check login session.";
+    I18N.text(loginStatus, "login.sessionError");
   });

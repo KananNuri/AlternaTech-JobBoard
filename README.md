@@ -4,7 +4,7 @@ A PHP/PDO/MySQL job board by Kanan and Charles for technology opportunities in F
 
 ## Install and run
 
-Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enable `curl` for optional Google/France Travail integrations and `mbstring` for the importer. No Node packages are needed; Node 20+ is used only for HTTP tests.
+Requirements: PHP 8.4+ with the `dom` extension (its HTML5 parser renders the translated board), PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enable `curl` for optional Google/France Travail integrations and `mbstring` for the importer. No Node packages are needed; Node 20+ is used only for HTTP tests.
 
 1. Copy `.env.example` to `.env` and set the five `DB_*` variables. Keep credentials private.
 2. With a setup DB user allowed to CREATE/ALTER tables, initialize a fresh demo database through the PHP backend:
@@ -13,7 +13,9 @@ Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enab
    php tools/setup.php --demo
    ```
 
-   This creates the schema, migrates it and inserts 20 fictional offers. `--demo` refuses to overwrite populated companies/categories/advertisements. For an existing installation, back up the database and run `php tools/setup.php` without `--demo`. Migration never deletes/merges records; existing duplicate profiles/applications stop it for manual review.
+   This installs the canonical schema into an **empty** database and inserts 20 fictional offers. `--demo` refuses to overwrite populated companies/categories/advertisements. `setup.php` never alters an existing database: one that already has tables is accepted only if it follows the canonical schema, otherwise setup stops before running any statement.
+
+   **Existing database** (historical, partially migrated or older schema): back it up, then use `tools/migrate.php`, which is a read-only dry run by default (`php tools/migrate.php`) and only writes with `--apply --database=<name>` (plus `--confirm-backup` for a non-test database). It refuses unknown schemas and ambiguous data, keeps every historical id and relation, migrates legacy bcrypt accounts, locks accounts whose legacy password has an unrecognised format, never deletes data and can be rerun or resumed. Read [the migration guide](docs/database-migration.md) first.
 3. Use a separate runtime DB user with SELECT/INSERT/UPDATE/DELETE privileges. Start from the repository root:
 
    ```powershell
@@ -32,11 +34,16 @@ Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enab
 
 ## Pages
 
-- `/`: paginated board, keyword/location/category filters, detail fetch without reload/popup, and Apply on every card. Guests provide details in an inline form; signed-in users reuse their profile.
+- `/`: paginated board with keyword/location/category filters. On wide screens the filters, list and pagination fill the left column and the selected offer's details the right one (fetched without reload/popup, showing only values the API returns); below 900 px the details follow the list with a "Back to results" button. Apply on every card: guests provide details in an inline form; signed-in users reuse their profile. Email and Google sign-in sit in the collapsible account menu of the header. Signed-in users get a "My space" section with their applications; recruiters also see received applications and their recruiter area there.
 - `/login.php`: email/password and optional Google sign-in. Admins go to administration; others return to the board.
+- The header navigation follows the session (visitor, signed-in user, administrator). It only reflects state: pages and APIs keep enforcing access on the server.
 - `/account.php`: create/edit first/last name, email, phone and password. Email/password changes require the current local password. Google-only accounts can edit name/phone; verified account linking/password recovery is a future feature.
 - `/admin.php`: server-protected administration with paginated CRUD for all eight tables, relationship checks and inline deletion confirmation. Active admins cannot delete/demote themselves. Manage linked profiles through their user account.
 - Charles's existing recruiter panel remains on the board. integration.js supplies its missing Edit callback and lets recruiters publish, fully edit and delete advertisements for their assigned companies (deletion is confirmed inline and also removes the advertisement's applications); validation errors are shown next to the affected fields, while authorization, session and other errors are shown in the form's message area. Recruiters can also see candidate contacts/messages and change statuses within their companies.
+
+## Interface languages
+
+The interface is available in French (default) and English, switched with the FR/EN control in the header. Interface text lives in one dictionary, `lang/messages.json`, used both by PHP rendering (`public/i18n.php`) and by `public/assets/i18n.js`, so every page is rendered in the chosen language and switching re-translates the page in place (open forms and the selected offer are kept). The choice is stored in the `alternatech_lang` preference cookie (`fr` or `en`, one year), separate from the session cookie. Offer titles, descriptions, company names and other API data are shown as returned and never translated; known English backend error messages are translated in the browser and unknown ones are shown as-is. Open the board through `/` (public/index.php): `public/index.html` is its template and has no dictionary when opened directly. To add a text, add the same key to both languages in `lang/messages.json`.
 
 Applications/messages are saved in SQL and visible to authorized recruiters/admins. No SMTP service is configured; the app does not claim to send email.
 
@@ -44,7 +51,7 @@ Applications/messages are saved in SQL and visible to authorized recruiters/admi
 
 `users` stores canonical accounts, password hashes and user/admin roles. `people` stores applicant/recruiter profiles, with nullable `user_id` for guests and one linked profile per account. Other tables: `companies`, `categories`, `advertisements`, `applications`, `company_members`, `google_identities`.
 
-Account and profile IDs differ. The integrated session stores `account_id = users.id` and legacy `user_id = people.id` to preserve Charles's handlers. Memberships and ad creators reference profile IDs. Assign recruiter company memberships in the admin panel. `application_date` is a generated alias for `created_at`. A unique `(person_id, advertisement_id)` prevents duplicate authenticated applications. Guest profiles are separate and never automatically linked by email.
+Account and profile IDs differ. The integrated session stores `account_id = users.id` and legacy `user_id = people.id` to preserve Charles's handlers. Memberships and ad creators reference profile IDs. Assign recruiter company memberships in the admin panel. `applications.application_date` (DATETIME) is the stored date and `created_at` its generated alias; databases built from the previous schema keep the reverse alias, which is equivalent. A unique `(person_id, advertisement_id)` prevents duplicate authenticated applications. `people.email` is not unique: guest profiles are separate and never automatically linked by email; `users.email` is unique. Company names are not unique. A company that still has advertisements cannot be deleted; deleting an advertisement deletes its applications. See [the migration guide](docs/database-migration.md) for the full contract and deletion matrix.
 
 ## API
 
@@ -88,7 +95,10 @@ Get-ChildItem api,public,tools,tests -Recurse -Filter *.php | ForEach-Object { p
 Get-ChildItem public/assets -Filter *.js | ForEach-Object { node --check $_.FullName }
 php tests/ads-validation.php
 php tests/google-auth.php
+php tests/migration/schema-migration-unit.php
 ```
+
+Migration tests that write (`tests/migration/migration-db.php`, then `migration-http.cjs`) run only on a dedicated database whose name ends with `_migration_test`, with `MIGRATION_TEST_DB=1`; see [the migration guide](docs/database-migration.md).
 
 Use **only an isolated disposable DB/server** with 20 demo offers for integration tests:
 

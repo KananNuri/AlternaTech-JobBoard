@@ -39,7 +39,7 @@ class Client {
   check((await founder.req('/api/companies/mine')).some(c=>Number(c.id)===company),'Existing recruiter handlers recognize manager membership');
   const second=await other.req('/api/company-access/proposals',201,'POST',{...payload,name:f.prefix+' Company Two'});
   const secondApproved=await admin.req(`/api/company-access/proposals/${second.id}/decision`,200,'POST',{decision:'approve'});companies.push(secondApproved.company_id);
-  await founder.req('/api/company-access/search?q=%25');await founder.req('/api/company-access/search?q=a',422);
+  check((await founder.req('/api/company-access/search?q=%25%25')).companies.length===0,'Search wildcards are literal');await founder.req('/api/company-access/search?q=a',422);
   check((await joiner.req('/api/company-access/search?q='+encodeURIComponent(f.prefix))).companies.some(c=>c.id===company),'Company is searchable');
   await joiner.req(`/api/company-access/companies/${company}/join`,422,'POST',{message:'',role:'manager'});
   await joiner.req(`/api/company-access/companies/${company}/join`,200,'POST',{message:'Synthetic colleague'});

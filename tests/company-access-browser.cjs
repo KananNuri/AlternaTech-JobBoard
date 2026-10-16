@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const guard=require('./support/http-guard.cjs'),base=guard.installHttpGuard();
+const f=JSON.parse(fs.readFileSync(__dirname+'/.runtime-fixtures.json','utf8'));guard.verifyFixtures(f);
+const {chromium}=require('playwright');let browser,checks=0;
+const check=(v,m)=>{assert.ok(v,m);checks++};
+(async()=>{
+ await fetch(base+'/__isolation/db');browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
+ const errors=[],accounts=[];let companyId=null,adminContext;
+ async function page(){const c=await browser.newContext({viewport:{width:1440,height:1000}});await c.addCookies([{url:base,name:'alternatech_lang',value:'en'}]);await c.route('**/*',route=>{assert.equal(new URL(route.request().url()).origin,base);return route.continue()});const p=await c.newPage();p.setDefaultTimeout(10000);p.on('pageerror',e=>errors.push(e.message));return p;}
+ async function account(label){const p=await page();await p.goto(base+'/account.php');const form=p.locator('#account-form');await form.locator('[name=firstname]').fill('Browser');await form.locator('[name=lastname]').fill(label);await form.locator('[name=email]').fill(f.prefix+'-'+label+'@example.invalid');await form.locator('[name=password]').fill(f.password);await form.locator('#account-submit').click();await p.waitForURL(base+'/');const s=await (await p.context().request.get(base+'/api/auth/session')).json();accounts.push(s.user);check(s.user.role==='user','Fresh account is an ordinary user');return p;}
+ async function clean(route,method='DELETE'){const s=await (await adminContext.request.get(base+'/api/auth/session')).json();const cookies=await adminContext.cookies(base);const cookie=cookies.filter(c=>c.name==='alternatech_login').map(c=>`${c.name}=${c.value}`).join('; ');const r=await fetch(base+route,{method,headers:{Cookie:cookie,'X-CSRF-Token':s.csrf_token}});assert.equal(r.status,204,await r.text());}
+ try{
+  const owner=await account('browser-founder'),joiner=await account('browser-colleague'),admin=await page();adminContext=admin.context();
+  await admin.goto(base+'/login.php');await admin.locator('[name=email]').fill(f.admin.email);await admin.locator('[name=password]').fill(f.password);await admin.locator('#signin button').click();await admin.waitForURL(base+'/admin.php');
+  await owner.locator('.app-nav a[href="/recruit.php"]').click();await owner.locator('#company-proposal [name=name]').fill(f.prefix+' Browser Company');await owner.locator('#company-proposal [name=email]').fill(f.prefix+'-office@example.invalid');await owner.locator('#company-proposal [name=evidence]').fill('Synthetic evidence of authority for browser workflow.');await owner.locator('#company-proposal button').click();await owner.locator('#company-state').getByText('Company creation: Awaiting approval',{exact:true}).waitFor();check(true,'Company creation stays pending');
+  await admin.goto(base+'/recruit.php');const proposal=admin.locator('#proposal-inbox article').filter({hasText:f.prefix+' Browser Company'});await proposal.locator('[data-decision=approve]').click();await admin.waitForFunction(()=>document.querySelector('#access-notice').textContent.startsWith('Saved.'));
+  await owner.reload();await owner.locator('#company-state').getByText('Company manager · recruiter access active',{exact:true}).waitFor();
+  const state=await (await owner.context().request.get(base+'/api/company-access')).json();companyId=state.companies.find(c=>c.name===f.prefix+' Browser Company').id;check(true,'Approved creator becomes company manager');
+  await joiner.goto(base+'/recruit.php');await joiner.locator('#company-search [name=q]').fill(f.prefix+' Browser');await joiner.locator('#company-search button').click();await joiner.locator('#company-results article button').first().click();await joiner.locator('#company-join [name=message]').fill('Synthetic colleague requesting recruiter access.');await joiner.locator('#company-join button').click();await joiner.locator('#company-state').getByText('Recruiter access request: Awaiting approval',{exact:true}).waitFor();check(true,'New colleague can request access');
+  await owner.reload();const request=owner.locator('#join-inbox article').filter({hasText:'browser-colleague'});await request.locator('[data-decision=approve]').click();await owner.waitForFunction(()=>document.querySelector('#access-notice').textContent.startsWith('Saved.'));
+  await joiner.reload();await joiner.locator('#company-state').getByText('Recruiter access active',{exact:true}).waitFor();check(true,'Manager approval activates colleague access');
+  check(await joiner.locator('#company-members button').count()===0,'Ordinary recruiter has no management controls');
+  const member=owner.locator('#company-members article').filter({hasText:'browser-colleague'});await member.getByRole('button',{name:'Revoke recruiter access',exact:true}).click();await member.getByRole('button',{name:'Confirm access removal',exact:true}).click();await owner.waitForFunction(()=>!document.querySelector('#company-members').textContent.includes('browser-colleague'));check(true,'Manager can revoke access with inline confirmation');
+  const memberships=await (await joiner.context().request.get(base+'/api/companies/mine')).json();check(!memberships.some(c=>Number(c.id)===companyId),'Revocation takes effect in existing recruiter API');
+  await owner.setViewportSize({width:390,height:844});check(await owner.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Recruiter onboarding fits mobile viewport');
+  await owner.locator('#company-proposal [name=name]').fill('Unsaved company draft');await owner.locator('[data-lang-switch=fr]').click();check(await owner.locator('#company-proposal [name=name]').inputValue()==='Unsaved company draft','Language switch retains company form draft');
+  if(process.env.TEST_SCREENSHOT_DIR){fs.mkdirSync(process.env.TEST_SCREENSHOT_DIR,{recursive:true});await owner.screenshot({path:path.join(process.env.TEST_SCREENSHOT_DIR,'company-access-mobile.png'),fullPage:true});await owner.setViewportSize({width:1440,height:1000});await owner.screenshot({path:path.join(process.env.TEST_SCREENSHOT_DIR,'company-access-desktop.png')});}
+  check(errors.length===0,'No uncaught onboarding JavaScript errors: '+errors.join(', '));
+ }finally{
+  if(adminContext){if(companyId)await clean('/api/admin/companies/'+companyId);for(const u of accounts){await clean('/api/admin/users/'+u.id);await clean('/api/admin/people/'+u.person_id);}}
+ }
+ console.log(`PASS ${checks} real browser onboarding checks: new accounts, company request, administrator verification, manager approval, colleague join, revocation, mobile and language drafts`);
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{await browser?.close()});

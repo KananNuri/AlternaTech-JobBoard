@@ -15,6 +15,14 @@ main > h1 { margin: var(--space-6) 0 var(--space-4); }
 /* Panels inserted outside <main> keep the page column and gutter. */
 body > .app-panel { width: min(calc(100% - 2 * var(--gutter)), calc(var(--max) - 2 * var(--gutter))); }
 .app-panel > h2 { margin-bottom: var(--space-4); }
+.access-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-5); align-items: start; }
+.access-grid > .app-panel { min-width: 0; margin: 0; }
+.access-list { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.access-row { padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface-2); overflow-wrap: anywhere; }
+.access-row p { white-space: pre-wrap; }
+.access-row button + button { margin-left: var(--space-2); }
+#company-join, #company-manager { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border); }
+@media(max-width:900px) { .access-grid { grid-template-columns: minmax(0,1fr); } }
 .auth-page main { max-width: 800px; }
 .auth-page main > h1 { margin-top: var(--space-7); text-align: center; }
 .auth-page .app-panel { padding: var(--space-6); border-top: 4px solid var(--primary); box-shadow: 0 16px 48px -28px #13214a55; }

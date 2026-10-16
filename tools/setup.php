@@ -6,6 +6,7 @@ declare(strict_types=1);
 //   php tools/setup.php [--demo]
 require dirname(__DIR__).'/api/config/database.php';
 require __DIR__.'/migration-lib.php';
+require __DIR__.'/company-access-schema.php';
 if (PHP_SAPI!=='cli') { http_response_code(404); exit; }
 try {
     $host=envValue('DB_HOST','127.0.0.1');$port=envValue('DB_PORT','3306');$name=envValue('DB_NAME','alternatech');
@@ -28,6 +29,7 @@ try {
         $sql=str_replace(['CREATE DATABASE IF NOT EXISTS alternatech','USE alternatech;'],["CREATE DATABASE IF NOT EXISTS `$name`","USE `$name`;"],$sql);
         $db->exec($sql);
         $db->exec("USE `$name`");
+        foreach (companyAccessStatements($db) as $statement) $db->exec($statement);
         if ($problems=verifyCanonical(schemaSnapshot($db))) throw new RuntimeException('Installed schema is not canonical: '.implode('; ',$problems));
         echo "Canonical schema installed.\n";
     } else echo "Database already follows the canonical schema; nothing to install.\n";

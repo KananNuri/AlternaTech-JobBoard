@@ -14,7 +14,7 @@ function navUser(): ?array {
 function siteNav(?array $user): string {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     if ($path === '/index.php') $path = '/';
-    $links = [['/', 'nav.board', 'all', ''], ['/account.php', 'nav.createAccount', 'guest', ''], ['/#my-space', 'nav.mySpace', 'user', ''], ['/account.php', 'nav.myAccount', 'user', ''], ['/admin.php', 'nav.admin', 'admin', 'admin-link']];
+    $links = [['/', 'nav.board', 'all', ''], ['/account.php', 'nav.createAccount', 'guest', ''], ['/#my-space', 'nav.mySpace', 'user', ''], ['/recruit.php', 'access.title', 'user', ''], ['/account.php', 'nav.myAccount', 'user', ''], ['/admin.php', 'nav.admin', 'admin', 'admin-link']];
     $html = '<nav class="app-nav"'.i18nAttr('aria-label', 'nav.label').'>';
     foreach ($links as [$href, $key, $auth, $id]) {
         $visible = $auth === 'all' || ($auth === 'guest' && !$user) || ($auth === 'user' && $user) || ($auth === 'admin' && ($user['role'] ?? '') === 'admin');

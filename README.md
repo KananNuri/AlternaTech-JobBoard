@@ -34,6 +34,8 @@ Requirements: PHP 8.4+ with the `dom` extension (its HTML5 parser renders the tr
 
 ## Pages
 
+- `/recruit.php`: [company onboarding and authority](docs/company-onboarding.md): submit a company for administrator verification or request to join an existing company. The appointed company manager approves/revokes colleagues; only the platform administrator appoints or replaces that manager. Existing canonical installations must run the additive installer documented in that guide; fresh setup includes it.
+
 - `/`: paginated board with keyword/location/category filters. On wide screens the filters, list and pagination fill the left column and the selected offer's details the right one (fetched without reload/popup, showing only values the API returns); below 900 px the details follow the list with a "Back to results" button. Apply on every card: guests provide details in an inline form; signed-in users reuse their profile. Email and Google sign-in sit in the collapsible account menu of the header. Signed-in users get a "My space" section with their applications; recruiters also see received applications and their recruiter area there.
 - `/login.php`: email/password and optional Google sign-in. Admins go to administration; others return to the board.
 - The header navigation follows the session (visitor, signed-in user, administrator). It only reflects state: pages and APIs keep enforcing access on the server.

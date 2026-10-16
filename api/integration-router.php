@@ -12,6 +12,7 @@ try {
     }
     if (in_array($path,['/api/auth/login','/api/auth/session','/api/auth/logout','/api/auth/register','/api/account'],true)) { require __DIR__.'/integration/auth.php'; return true; }
     if (preg_match('~^/api/admin(?:/|$)~',$path)) { require __DIR__.'/integration/admin.php'; return true; }
+    if (preg_match('~^/api/company-access(?:/|$)~',$path)) { require __DIR__.'/integration/company-access.php'; return true; }
     if ($path==='/api/recruiter/applications') { require __DIR__.'/integration/recruiter.php'; return true; }
     if ($path==='/api/catalog/ads' || $path==='/api/categories' || preg_match('~^/api/companies/([1-9][0-9]*)/ads$~',$path,$matches)) {
         if (!empty($matches[1])) $GLOBALS['route_company_id']=$matches[1];

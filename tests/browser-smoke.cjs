@@ -1,0 +1,63 @@
+'use strict';
+// Optional: npm-installed Playwright and its browser, or BROWSER_CHANNEL=msedge.
+// Run after integration-fixtures.php and before integration-http.cjs cleans accounts.
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const guard=require('./support/http-guard.cjs'),base=guard.installHttpGuard();
+const f=JSON.parse(fs.readFileSync(__dirname+'/.runtime-fixtures.json','utf8'));guard.verifyFixtures(f);
+const {chromium}=require('playwright');
+let browser,checks=0;
+const check=(condition,message)=>{assert.ok(condition,message);checks++};
+(async()=>{
+  await fetch(base+'/__isolation/db');
+  browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
+  const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[];
+  page.setDefaultTimeout(10000);
+  page.on('pageerror',e=>errors.push(e.message));
+  await context.route('**/*',route=>{assert.equal(new URL(route.request().url()).origin,base,'Browser must stay on isolated server');return route.continue()});
+  const login=async(label,inline=false)=>{
+    await page.goto(base+(inline?'/':'/login.php'));
+    if(inline)await page.locator('#account-toggle').click();
+    const form=page.locator(inline?'#login-form':'#signin');
+    await form.locator('[name=email]').fill(f[label].email);await form.locator('[name=password]').fill(f.password);
+    await form.locator('button').click();
+    await page.waitForURL(base+(label==='admin'?'/admin.php':'/'));
+    await page.locator(label==='admin'?'#records-body tr':'#my-space').first().waitFor();
+    check(true,`${label} login`);
+  };
+  const logout=async()=>{await page.locator('#account-toggle').click();await page.locator('#site-logout').click();await page.waitForURL(base+'/');await page.locator('#login-form').waitFor({state:'attached'})};
+  await page.goto(base+'/login.php');await page.locator('[name=email]').fill(f.candidate.email);await page.locator('[name=password]').fill('incorrect-password');await page.locator('#signin button').click();
+  await page.waitForFunction(()=>document.querySelector('#account-notice').textContent.trim()&&!document.querySelector('#signin button').disabled);check(page.url().endsWith('/login.php'),'Invalid credentials keep form usable');
+  await login('candidate');
+  check(await page.locator('[data-auth=admin]').isHidden(),'User cannot see admin link');
+  await page.reload();await page.locator('#my-space').waitFor();check(true,'Session survives reload');
+  await page.locator('.card-more').first().click();await page.locator('.details-apply').click();
+  await page.locator('#apply-form-section textarea').fill('Browser test draft');
+  await page.locator('[data-lang-switch=en]').click();
+  check(await page.locator('#apply-form-section textarea').inputValue()==='Browser test draft','Language switch preserves application draft');
+  await page.goto(base+'/account.php');await page.waitForFunction(()=>document.querySelector('[name=email]').value.length>0);
+  await page.locator('[name=phone]').fill('0600000016');await page.locator('#account-submit').click();await page.waitForFunction(()=>document.querySelector('#account-notice').textContent.includes('saved'));
+  check(true,'Profile edit saved through UI');await logout();
+  await login('admin',true);
+  let release,started;const gate=new Promise(r=>release=r),seen=new Promise(r=>started=r);
+  await page.route('**/api/admin/companies?*',async route=>{const response=await route.fetch();started();await gate;await route.fulfill({response})});
+  await page.locator('#resource').selectOption('companies');await seen;
+  const categoriesResponse=page.waitForResponse(r=>r.url().includes('/api/admin/categories?'));
+  await page.locator('#resource').selectOption('categories');await (await categoriesResponse).finished();
+  await page.waitForFunction(()=>document.querySelector('#records-body').textContent.includes('Artificial Intelligence'));
+  const expected=await page.locator('#records-body').innerText();
+  const lateResponse=page.waitForResponse(r=>r.url().includes('/api/admin/companies?'));release();await (await lateResponse).finished();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  check(await page.locator('#resource').inputValue()==='categories','Latest resource retained');
+  check(await page.locator('#records-body').innerText()===expected,'Delayed company response cannot replace category rows');
+  await page.locator('#new-record').click();await page.locator('#record-form [name=name]').fill('Browser smoke category');await page.locator('#record-form button').first().click();
+  await page.waitForFunction(()=>document.querySelector('#admin-notice').textContent.includes('saved'));check(true,'Admin creation through UI');
+  const row=page.locator('#records-body tr').filter({hasText:'Browser smoke category'});await row.locator('button').last().click();await row.locator('button').first().click();
+  await page.waitForFunction(()=>document.querySelector('#admin-notice').textContent.includes('deleted'));check(true,'Admin deletion through UI');await logout();
+  await login('candidate',true);check(await page.locator('#my-space').isVisible(),'Inline user login refreshes account state');
+  await page.context().clearCookies();await page.setViewportSize({width:390,height:844});await page.goto(base+'/');await page.locator('.card').first().waitFor();
+  check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile board fits viewport');
+  await page.locator('.card-more').first().click();await page.locator('.details-back').click();check(await page.locator('.card-more').first().evaluate(n=>n===document.activeElement),'Mobile back returns focus to selected card');
+  for(const path of ['/login.php','/account.php']){await page.goto(base+path);check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Mobile ${path} fits viewport`)}
+  check(errors.length===0,`No uncaught browser errors: ${errors.join(', ')}`);
+  console.log(`PASS ${checks} browser checks: user/admin login, failed login, inline role redirect, reload, profile edit, language draft, delayed admin response, admin CRUD, mobile layout and keyboard focus`);
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{await browser?.close()});

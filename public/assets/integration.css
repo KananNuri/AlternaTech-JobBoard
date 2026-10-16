@@ -15,6 +15,16 @@ main > h1 { margin: var(--space-6) 0 var(--space-4); }
 /* Panels inserted outside <main> keep the page column and gutter. */
 body > .app-panel { width: min(calc(100% - 2 * var(--gutter)), calc(var(--max) - 2 * var(--gutter))); }
 .app-panel > h2 { margin-bottom: var(--space-4); }
+.auth-page main { max-width: 800px; }
+.auth-page main > h1 { margin-top: var(--space-7); text-align: center; }
+.auth-page .app-panel { padding: var(--space-6); border-top: 4px solid var(--primary); box-shadow: 0 16px 48px -28px #13214a55; }
+.auth-page .form-grid { max-width: none; }
+.auth-page #account-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.auth-page #account-form label:nth-of-type(n + 5), .auth-page .notice { grid-column: 1 / -1; }
+.auth-page .form-grid > button { width: 100%; grid-column: 1 / -1; min-height: 46px; }
+.auth-page .app-panel > p:last-child { margin-bottom: 0; padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.auth-page #google-account { padding-top: var(--space-4); border-top: 1px solid var(--border); }
+.auth-page #google-account:empty { display: none; }
 .muted { color: var(--ink-3); }
 .notice { min-height: 1.6em; color: var(--ink-2); }
 .notice.error, .error { color: var(--danger); }
@@ -46,6 +56,12 @@ table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 th, td { padding: var(--space-3); text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 th { color: var(--ink-2); background: var(--surface-2); font-weight: 700; }
 tbody tr:hover { background: var(--blue-50); }
+.admin-panel #resource { max-width: 360px; margin-top: var(--space-2); }
+.admin-panel .table-wrap { max-height: 65vh; }
+.admin-panel th { position: sticky; top: 0; z-index: 1; }
+.admin-panel tbody tr:nth-child(even) { background: var(--surface-2); }
+.admin-panel td:last-child { min-width: 180px; }
+.admin-panel #record-editor { margin-top: var(--space-5); padding: var(--space-5); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); }
 td { max-width: 300px; }
 td button { min-height: 32px; padding: var(--space-1) var(--space-3); font-size: var(--text-xs); }
 td button + button { margin-left: var(--space-2); }
@@ -74,6 +90,9 @@ td button + button { margin-left: var(--space-2); }
 @media (max-width: 760px) {
   .app-nav { width: 100%; margin-left: 0; }
   .app-panel { padding: var(--space-4); }
+  .auth-page .app-panel { padding: var(--space-5); }
+  .auth-page #account-form { grid-template-columns: minmax(0, 1fr); }
+  .admin-panel #record-editor { padding: var(--space-4); }
   .filters { align-items: stretch; }
   .filters label { flex-basis: 100%; }
   th, td { padding: var(--space-2); }

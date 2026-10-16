@@ -163,7 +163,7 @@ function showSignedIn(user) {
     }
   });
 
-  passwordAccount.append(title, email, logoutButton);
+  passwordAccount.append(title, email, logoutButton, loginStatus);
 
   loadRecruiterCompanies();
 }
@@ -199,6 +199,7 @@ loginForm.addEventListener("submit", async (event) => {
 
     loginForm.reset();
     showSignedIn(data.user);
+    document.dispatchEvent(new CustomEvent('alternatech:signed-in', {detail: {user: data.user}}));
   } catch (error) {
     if (error.message === "Failed to fetch") I18N.text(loginStatus, "login.unreachable");
     else I18N.error(loginStatus, error);

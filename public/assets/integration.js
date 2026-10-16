@@ -69,23 +69,25 @@
       for(const a of data.applications)activityBody.append(tx('p','mine.row',{title:a.advertisement_title,company:a.company,status:statusLabel(a.status)}));
     }catch(error){activityBody.replaceChildren(I18N.error(make('p'),error));}
   }
-  let signedInNow=false;
-  document.querySelector('#login-form')?.addEventListener('submit',()=>{signedInNow=true;},true);
+  let refreshVersion=0;
   async function refresh(){
-    try{session=await api('/api/auth/session');
+    const version=++refreshVersion;
+    try{const latest=await api('/api/auth/session');if(version!==refreshVersion)return;session=latest;
       // Header display state after an in-page sign-in (page.php renders the same state server-side on load).
       for(const link of document.querySelectorAll('.app-nav [data-auth]')){const need=link.dataset.auth;link.hidden=need==='guest'?!!session.user:need==='admin'?session.user?.role!=='admin':!session.user;}
       const accountToggle=document.querySelector('#account-toggle');if(accountToggle){if(session.user)I18N.raw(accountToggle,`${session.user.firstname} ${session.user.lastname}`);else I18N.text(accountToggle,'account.signIn');}
       if(mySpace){const wasHidden=mySpace.hidden;mySpace.hidden=!session.user;if(wasHidden&&session.user&&location.hash==='#my-space')mySpace.scrollIntoView();}
       document.querySelector('#google-account').hidden=!!session.user;
       if(session.user && retainedLoginStatus)I18N.raw(retainedLoginStatus,'');
-      if(signedInNow && session.user?.role==='admin'){location.assign('/admin.php');return;}
       if(selectedAd && document.querySelector('#apply-form-section'))applicationForm(selectedAd);
       await loadApplications();await loadRecruiterApplications();
-    }catch(error){activity.hidden=false;activityBody.replaceChildren(I18N.error(make('p'),error));}
+    }catch(error){if(version!==refreshVersion)return;activity.hidden=false;activityBody.replaceChildren(I18N.error(make('p'),error));}
   }
-  let refreshTimer;
-  new MutationObserver(()=>{if(retainedLoginStatus&&!retainedLoginStatus.isConnected)document.querySelector('#password-account').append(retainedLoginStatus);clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,50);}).observe(document.querySelector('#password-account'),{childList:true});
+  document.addEventListener('alternatech:signed-in',event=>{
+    if(retainedLoginStatus&&!retainedLoginStatus.isConnected)document.querySelector('#password-account').append(retainedLoginStatus);
+    if(event.detail.user.role==='admin'){location.assign('/admin.php');return;}
+    refresh();
+  });
   refresh();
 
   // Recruiter advertisements. Charles's login.js renders the list; this extends it through its

@@ -1,7 +1,7 @@
 "use strict";
 (() => {
   const resource=document.querySelector('#resource'),notice=document.querySelector('#admin-notice'),form=document.querySelector('#record-form'),editor=document.querySelector('#record-editor');
-  let specs={},page=1,pages=1,currentKey=null,csrfToken='';
+  let specs={},page=1,pages=1,currentKey=null,csrfToken='',loadVersion=0;
   const make=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
   const tx=(tag,key,params)=>I18N.text(make(tag),key,params);
   const labelOf=key=>key.replaceAll('_',' ').replace(/^./,c=>c.toUpperCase());
@@ -10,9 +10,13 @@
   async function api(path,method='GET',body){const r=await fetch(path,{method,headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-Token':csrfToken},body:body===undefined?undefined:JSON.stringify(body)});if(r.status===204)return null;const data=await r.json();if(!r.ok)throw data.error?new Error(data.error):I18N.translated('errors.generic');return data;}
   function keyOf(row){return resource.value==='company_members'?`${row.company_id}:${row.person_id}`:resource.value==='google_identities'?row.google_sub:row.id;}
   async function load(){
+    const version=++loadVersion,table=resource.value;
+    document.querySelector('#records-head').replaceChildren();document.querySelector('#records-body').replaceChildren();
+    document.querySelector('#admin-prev').disabled=true;document.querySelector('#admin-next').disabled=true;
+    document.querySelector('#new-record').disabled=true;
     I18N.text(notice,'admin.loading');
     try{
-      const result=await api(`/api/admin/${resource.value}?page=${page}&per_page=10`);pages=result.pages;
+      const result=await api(`/api/admin/${table}?page=${page}&per_page=10`);if(version!==loadVersion)return;pages=result.pages;
       if(page>pages){page=pages;return load();}
       const head=document.querySelector('#records-head'),body=document.querySelector('#records-body');head.replaceChildren();body.replaceChildren();
       const keys=result.items.length?Object.keys(result.items[0]):Object.keys(specs[resource.value]).filter(k=>k!=='password');
@@ -24,7 +28,8 @@
         };actions.append(edit,remove);line.append(actions);body.append(line);
       }
       I18N.text(notice,'admin.count',{count:Number(result.total)});I18N.text(document.querySelector('#admin-page'),'pager.status',{page,pages});document.querySelector('#admin-prev').disabled=page<=1;document.querySelector('#admin-next').disabled=page>=pages;
-    }catch(error){I18N.error(notice,error);}
+    }catch(error){if(version===loadVersion)I18N.error(notice,error);}
+    finally{if(version===loadVersion)document.querySelector('#new-record').disabled=false;}
   }
   function editRecord(row=null){
     currentKey=row?keyOf(row):null;form.replaceChildren();editor.hidden=false;I18N.text(document.querySelector('#editor-title'),row?'admin.editTitle':'admin.createTitle');
@@ -43,10 +48,10 @@
     const save=tx('button','admin.save'),cancel=tx('button','common.cancel');cancel.type='button';cancel.className='secondary';cancel.onclick=()=>{editor.hidden=true;};form.append(save,cancel);form.querySelector('input,select,textarea')?.focus();
   }
   form.onsubmit=async event=>{
-    event.preventDefault();const button=form.querySelector('button');button.disabled=true;
+    event.preventDefault();const button=form.querySelector('button');button.disabled=true;resource.disabled=true;document.querySelector('#new-record').disabled=true;
     try{const data={};for(const [key,value] of new FormData(form)){const [type,,required]=specs[resource.value][key];if(type==='password'&&!value&&currentKey!==null)continue;data[key]=type==='id'?(value?Number(value):null):(!required&&!value?null:value);}
       await api(`/api/admin/${resource.value}${currentKey!==null?'/'+encodeURIComponent(currentKey):''}`,currentKey===null?'POST':'PATCH',data);editor.hidden=true;await load();I18N.text(notice,'admin.saved');
-    }catch(error){I18N.error(notice,error);}finally{button.disabled=false;}
+    }catch(error){I18N.error(notice,error);}finally{button.disabled=false;resource.disabled=false;document.querySelector('#new-record').disabled=false;}
   };
   resource.onchange=()=>{page=1;editor.hidden=true;load();};document.querySelector('#new-record').onclick=()=>editRecord();
   document.querySelector('#admin-prev').onclick=()=>{page--;load();};document.querySelector('#admin-next').onclick=()=>{page++;load();};

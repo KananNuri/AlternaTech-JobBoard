@@ -39,6 +39,6 @@ function pageStart(string $titleKey): void {
     echo '<!doctype html><html lang="'.currentLang().'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         .i18nText('title.page', ['page' => ['k' => $titleKey]], 'title')
         .'<link rel="stylesheet" href="/assets/jobboard.css"><link rel="stylesheet" href="/assets/integration.css">'.siteScripts().'</head>'
-        .'<body><header><a class="brand" href="/">AlternaTech<span>JOB BOARD</span></a>'.i18nText('site.tagline').siteNav($user).langSwitch().accountMenu($user).'</header><main>'.i18nText($titleKey, [], 'h1');
+        .'<body'.(in_array($titleKey,['page.signIn','page.account'],true)?' class="auth-page"':'').'><header><a class="brand" href="/">AlternaTech<span>JOB BOARD</span></a>'.i18nText('site.tagline').siteNav($user).langSwitch().accountMenu($user).'</header><main>'.i18nText($titleKey, [], 'h1');
 }
 function pageEnd(): void { echo '</main>'.i18nText('site.footer', [], 'footer').'</body></html>'; }

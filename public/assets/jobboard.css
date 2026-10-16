@@ -26,7 +26,7 @@
 /* Base */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 400 var(--text-md)/1.6 var(--font-sans); -webkit-font-smoothing: antialiased; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 95% 0%, #e4ebff 0, transparent 42rem), var(--bg); background-repeat: no-repeat; color: var(--ink); font: 400 var(--text-md)/1.6 var(--font-sans); -webkit-font-smoothing: antialiased; }
 h1, h2, h3, h4 { margin: 0 0 var(--space-3); font-family: var(--font-display); color: var(--ink); line-height: 1.2; letter-spacing: -.015em; }
 h1 { font-size: var(--text-3xl); font-weight: 800; letter-spacing: -.03em; }
 h2 { font-size: var(--text-xl); font-weight: 700; }
@@ -88,9 +88,12 @@ textarea { min-height: 120px; line-height: 1.5; resize: vertical; }
 /* Board */
 .eyebrow { margin: 0; font: 600 var(--text-xs)/1.4 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--primary); }
 /* Compact intro: the offers stay the priority above the fold. */
-.intro { padding: var(--space-5) 0 var(--space-4); }
-.intro h1 { margin: var(--space-2) 0; font-size: var(--text-2xl); }
-.intro > p { max-width: 760px; margin-bottom: var(--space-1); color: var(--ink-2); }
+.intro { position: relative; isolation: isolate; overflow: hidden; margin: var(--space-5) 0; padding: var(--space-6); border: 1px solid #263c70; border-radius: 24px; background: linear-gradient(115deg, var(--navy-900), #172e63); box-shadow: var(--shadow-2); }
+.intro::after { content: ""; position: absolute; z-index: -1; width: 340px; height: 340px; right: -95px; top: -140px; border: 1px solid #6688b9; border-radius: 50%; box-shadow: 0 0 0 35px #ffffff05, 0 0 0 70px #ffffff05, 0 0 0 105px #ffffff05; }
+.intro h1 { max-width: 850px; margin: var(--space-3) 0; color: #fff; font-size: clamp(1.7rem, 2.8vw, 2.6rem); line-height: 1.15; }
+.intro > p { max-width: 760px; margin-bottom: var(--space-2); color: #dbe3fb; }
+.intro .eyebrow { color: #89e7f3; }
+.intro small { display: block; color: #b9c8e5; font-size: var(--text-xs); }
 /* Left column: filters, status, list and pagination. Right column: sticky details. */
 .board { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: var(--space-5); align-items: start; }
 .board-list { min-width: 0; }
@@ -111,7 +114,10 @@ textarea { min-height: 120px; line-height: 1.5; resize: vertical; }
 .card, #details { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-1); }
 .card { padding: var(--space-4) var(--space-5); transition: border-color var(--speed) var(--ease), box-shadow var(--speed) var(--ease), transform var(--speed) var(--ease); }
 .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); transform: translateY(-1px); }
-.card h2 { margin: var(--space-2) 0 var(--space-1); font-size: var(--text-lg); }
+.card h2 { margin: var(--space-3) 0 var(--space-1); font-size: 1.2rem; }
+.card > p:not(.meta):not(.badge) { color: var(--ink-2); }
+.card:nth-child(3n + 2) .badge { color: #126054; background: #e2f5ed; }
+.card:nth-child(3n) .badge { color: #69419a; background: #f0e9fc; }
 .card p { margin: 0 0 var(--space-2); }
 .card .actions { margin-top: var(--space-3); }
 .card.is-selected { border-color: var(--primary); box-shadow: inset 4px 0 0 var(--primary), var(--shadow-2); }
@@ -187,13 +193,18 @@ button.account-toggle[aria-expanded="true"]::after { transform: translateY(2px) 
 @media (max-width: 760px) {
   :root { --gutter: 16px; }
   body > header > span { display: none; }
+  body > header { gap: var(--space-2); }
   /* Brand, language switch and account menu on the first row, navigation below. */
-  .brand { margin-right: auto; }
+  .brand { margin-right: auto; font-size: 1.15rem; }
   .lang-switch { order: 2; }
   .account-menu { order: 3; }
   .app-nav { order: 4; }
   .account-panel { right: var(--gutter); left: var(--gutter); width: auto; }
-  .intro { padding-top: var(--space-4); }
+  .intro { margin-block: var(--space-4); padding: var(--space-5); border-radius: var(--radius-l); }
+  .account-toggle { max-width: 40vw; padding-inline: var(--space-3); font-size: var(--text-xs); overflow-wrap: anywhere; }
+  .card { padding: var(--space-4); }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .facts dd { margin-bottom: var(--space-2); }
   .board-list .filters { grid-template-columns: 1fr; }
   .board-list .filters button { width: 100%; }
 }

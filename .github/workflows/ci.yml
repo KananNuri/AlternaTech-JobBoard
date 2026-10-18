@@ -1,0 +1,69 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      database:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: disposable-test-password
+          MARIADB_ROOT_HOST: '%'
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: alternatech_ci_test
+      DB_USER: root
+      DB_PASSWORD: disposable-test-password
+      INTEGRATION_TEST_DB: '1'
+      GOOGLE_TEST_DB: '1'
+      TEST_API_URL: http://127.0.0.1:8098
+      APP_URL: http://127.0.0.1:8098
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: 25218
+      SMTP_SECURITY: none
+      MAIL_FROM: board@example.invalid
+      GOOGLE_CLIENT_ID: test-client.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: test-only-placeholder
+      GOOGLE_REDIRECT_URI: http://127.0.0.1:8098/api/auth/google/callback
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, curl, mbstring, openssl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer audit
+      - name: Syntax and unit checks
+        run: |
+          find api public tools tests -name '*.php' -print0 | xargs -0 -n1 php -l
+          find public/assets -name '*.js' -print0 | xargs -0 -n1 node --check
+          php tests/ads-validation.php
+          php tests/google-auth.php
+          node tests/board-races.cjs
+      - name: Prepare isolated database and server
+        run: |
+          php tools/setup.php --demo
+          php tools/migrate.php
+          php tests/integration-fixtures.php
+          php -S 127.0.0.1:8098 -t public api/integration-router.php > /tmp/alternatech-server.log 2>&1 &
+          for i in $(seq 1 30); do curl --fail --silent http://127.0.0.1:8098/api/auth/csrf > /dev/null && break; sleep 1; done
+      - name: HTTP and database regression tests
+        run: |
+          export TEST_RECRUITER_EMAIL=$(node -p "require('./tests/.runtime-fixtures.json').recruiter.email")
+          export TEST_RECRUITER_PASSWORD=$(node -p "require('./tests/.runtime-fixtures.json').password")
+          node tests/ads-integrated-http.cjs
+          node tests/integration-http.cjs
+          php tests/google-db.php
+          php tests/france-travail-db.php
+          node tests/security-http.cjs

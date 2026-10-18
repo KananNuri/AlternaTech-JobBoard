@@ -6,7 +6,7 @@ try {
     $host=envValue('DB_HOST','127.0.0.1');$port=envValue('DB_PORT','3306');$name=envValue('DB_NAME','alternatech');
     if (!preg_match('/^[a-zA-Z0-9_.-]+$/D',$host) || !ctype_digit($port) || !preg_match('/^[a-zA-Z0-9_]+$/D',$name)) throw new RuntimeException('Invalid database configuration');
     // Setup credentials need CREATE/ALTER; use a separate restricted runtime DB user afterwards.
-    $db=new PDO("mysql:host=$host;port=$port;charset=utf8mb4",envValue('DB_USER','alternatech'),envValue('DB_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $db=new PDO("mysql:host=$host;port=$port;charset=utf8mb4",envValue('DB_USER','alternatech'),envValue('DB_PASSWORD'),databaseOptions());
     $sql=file_get_contents(dirname(__DIR__).'/database/schema.sql');
     $sql=str_replace(['CREATE DATABASE IF NOT EXISTS alternatech','USE alternatech;'],["CREATE DATABASE IF NOT EXISTS `$name`","USE `$name`;"],$sql);
     $db->exec($sql);

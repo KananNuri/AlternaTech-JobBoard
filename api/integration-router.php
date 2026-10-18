@@ -5,6 +5,8 @@ require_once __DIR__.'/integration/common.php';
 ini_set('display_errors','0');
 $path=rtrim(parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)??'','/');
 try {
+    if ($path==='/index.html' || $path==='/index.php') { header('Location: /',true,308); return true; }
+    if (in_array($path,['/api/auth/password/request','/api/auth/password/reset','/api/auth/email/request','/api/auth/email/verify'],true)) { require __DIR__.'/integration/security.php'; return true; }
     if ($path==='/api/auth/csrf') {
         methods(['GET']); startSession();
         $_SESSION['csrf_token']??=bin2hex(random_bytes(32)); reply(200,['csrf_token'=>$_SESSION['csrf_token']]);
@@ -12,6 +14,7 @@ try {
     if (in_array($path,['/api/auth/login','/api/auth/session','/api/auth/logout','/api/auth/register','/api/account'],true)) { require __DIR__.'/integration/auth.php'; return true; }
     if (preg_match('~^/api/admin(?:/|$)~',$path)) { require __DIR__.'/integration/admin.php'; return true; }
     if ($path==='/api/recruiter/applications') { require __DIR__.'/integration/recruiter.php'; return true; }
+    if ($path==='/api/recruiter/ads') { require __DIR__.'/integration/recruiter-ads.php'; return true; }
     if ($path==='/api/catalog/ads' || $path==='/api/categories' || preg_match('~^/api/companies/([1-9][0-9]*)/ads$~',$path,$matches)) {
         if (!empty($matches[1])) $GLOBALS['route_company_id']=$matches[1];
         require __DIR__.'/integration/catalog.php'; return true;

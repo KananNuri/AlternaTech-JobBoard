@@ -6,6 +6,9 @@ try {
     $db=database();
     $exists=fn(string $table,string $column)=> (bool)$db->query("SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='$table' AND column_name='$column'")->fetchColumn();
     $index=fn(string $table,string $name)=> (bool)$db->query("SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='$table' AND index_name='$name'")->fetchColumn();
+    if (!$exists('users','email_verified_at')) $db->exec('ALTER TABLE users ADD email_verified_at DATETIME NULL');
+    if (!$exists('users','auth_version')) $db->exec('ALTER TABLE users ADD auth_version INT UNSIGNED NOT NULL DEFAULT 0');
+    $db->exec(file_get_contents(dirname(__DIR__).'/database/migrations/002_account_services.sql'));
     foreach (['people'=>['user_id'],'applications'=>['person_id','advertisement_id']] as $table=>$fields) {
         $where=$table==='people'?' WHERE user_id IS NOT NULL':'';
         if ($db->query('SELECT 1 FROM '.$table.$where.' GROUP BY '.implode(',',$fields).' HAVING COUNT(*)>1 LIMIT 1')->fetchColumn()) throw new RuntimeException('Duplicate records need review before migration');

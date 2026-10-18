@@ -1,0 +1,6 @@
+# Replace /srv/alternatech with your deployment directory; run as the application OS user.
+# Keep logs outside public/. Install only after configuring .env and running migrations.
+* * * * * cd /srv/alternatech && /usr/bin/php tools/send-mail.php >> /var/log/alternatech-mail.log 2>&1
+23 3 * * * cd /srv/alternatech && /usr/bin/php tools/maintenance.php >> /var/log/alternatech-maintenance.log 2>&1
+# Use this OR the GitHub scheduled workflow for imports, not both.
+17 5 * * * cd /srv/alternatech && /usr/bin/php api/integrations/france-travail/sync.php informatique >> /var/log/alternatech-sync.log 2>&1

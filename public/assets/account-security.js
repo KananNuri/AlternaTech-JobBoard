@@ -1,0 +1,10 @@
+"use strict";
+(() => {
+  const panel=document.querySelector('#account-security'),notice=document.querySelector('#security-notice'),verify=document.querySelector('#verify-email'),link=document.querySelector('#link-google');
+  async function request(path,body){const csrf=await fetch('/api/auth/csrf');if(!csrf.ok)throw Error('Unable to prepare request.');const {csrf_token}=await csrf.json();const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf_token},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error||'Request failed.');return data;}
+  async function refresh(){try{const response=await fetch('/api/auth/session');if(!response.ok)throw Error('Unable to load account security.');const session=await response.json();panel.hidden=!session.user;if(!session.user)return;document.querySelector('#verification-status').textContent=session.user.email_verified_at?'Email verified.':session.email_enabled?'Your email is not verified.':'Email delivery has not been configured by the administrator.';verify.hidden=!!session.user.email_verified_at||!session.email_enabled;const google=await fetch('/api/auth/google/session');if(google.ok)link.hidden=!(await google.json()).enabled;}catch(error){notice.textContent=error.message;}}
+  verify.onclick=async()=>{verify.disabled=true;try{notice.textContent=(await request('/api/auth/email/request',{})).message;}catch(error){notice.textContent=error.message;}finally{verify.disabled=false;}};
+  link.onsubmit=async event=>{event.preventDefault();const button=link.querySelector('button');button.disabled=true;try{const data=await request('/api/auth/google/link',{current_password:link.elements.current_password.value});link.reset();location.assign(data.url);}catch(error){notice.textContent=error.message;button.disabled=false;}};
+  if(new URLSearchParams(location.search).get('linked')==='google'){notice.textContent='Google account linked.';history.replaceState(null,'',location.pathname);}
+  document.addEventListener('alternatech:account-saved',refresh);refresh();
+})();

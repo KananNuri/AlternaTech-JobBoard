@@ -1,11 +1,13 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/common.php';
+require_once __DIR__.'/rate-limit.php';
+require_once __DIR__.'/mail.php';
 $path=rtrim(parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH),'/');
 try {
     if ($path==='/api/auth/session') {
         methods(['GET']); $user=currentUser(false);
-        reply(200,['user'=>$user,'csrf_token'=>$user?$_SESSION['csrf_token']:null]);
+        reply(200,['user'=>$user,'csrf_token'=>$user?$_SESSION['csrf_token']:null,'email_enabled'=>mailEnabled()]);
     }
     if ($path==='/api/auth/logout') {
         methods(['POST']); currentUser(); csrf(); $_SESSION=[];
@@ -25,10 +27,17 @@ try {
             if (!is_string($body['current_password']??null) || !password_verify($body['current_password'],$q->fetchColumn())) reply(403,['error'=>'Current password required to change email or password']);
         }
         if (isset($body['password'])) $fields['password_hash']=password_hash(validPassword($body['password']),PASSWORD_DEFAULT);
+        if (isset($fields['email'])) $fields['email_verified_at']=null;
+        if (isset($fields['password_hash'])) $fields['auth_version']=($_SESSION['auth_version']??0)+1;
         if (!$fields) reply(422,['error'=>'No account changes supplied']);
         $db->beginTransaction();
         $q=$db->prepare('UPDATE users SET '.implode(',',array_map(fn($k)=>"$k=?",array_keys($fields))).' WHERE id=?'); $q->execute([...array_values($fields),$user['id']]);
-        profileFor($db,currentUser()); $db->commit();
+        // Refresh the current browser version; all other sessions are revoked on a password change.
+        if (isset($fields['auth_version'])) $_SESSION['auth_version']=$fields['auth_version'];
+        profileFor($db,currentUser());
+        if (isset($fields['password_hash'])) $db->prepare("DELETE FROM account_tokens WHERE user_id=? AND purpose='reset'")->execute([$user['id']]);
+        if (isset($fields['email'])) { $db->prepare('DELETE FROM account_tokens WHERE user_id=?')->execute([$user['id']]); issueAccountToken($db,currentUser(),'verify'); }
+        $db->commit();
         reply(200,['user'=>currentUser()]);
     }
     methods(['POST']); $body=jsonBody(8192);
@@ -36,16 +45,18 @@ try {
     if (!filter_var($email,FILTER_VALIDATE_EMAIL)) reply(422,['error'=>'Valid email required']);
     $db=database();
     if ($path==='/api/auth/register') {
+        accountRateLimits($db,'register',$email,5,30,3600);
         if (array_diff(array_keys($body),['firstname','lastname','email','phone','password'])) reply(422,['error'=>'Unsupported registration fields']);
         $first=textField($body,'firstname',100); $last=textField($body,'lastname',100); $phone=textField($body,'phone',30,false);
         $password=validPassword($body['password']??null);
         $db->beginTransaction();
         $q=$db->prepare("INSERT INTO users (firstname,lastname,email,phone,password_hash,role) VALUES (?,?,?,?,?,'user')"); $q->execute([$first,$last,$email,$phone,password_hash($password,PASSWORD_DEFAULT)]);
         $q=$db->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$db->lastInsertId()]); $user=$q->fetch();
-        $person=profileFor($db,$user); $db->commit(); signIn($db,$user);
+        $person=profileFor($db,$user); issueAccountToken($db,$user,'verify'); $db->commit(); signIn($db,$user);
         reply(201,['user'=>currentUser(),'csrf_token'=>$_SESSION['csrf_token'],'redirect'=>'/']);
     }
     if ($path==='/api/auth/login') {
+        accountRateLimits($db,'login',$email,10,60,60);
         if (!is_string($body['password']??null) || $body['password']==='' || strlen($body['password'])>1024) reply(422,['error'=>'Password required']);
         startSession();
         // Bound repeated attempts per browser session; deployment can add a proxy/IP limiter.

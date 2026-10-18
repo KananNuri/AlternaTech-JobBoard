@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/common.php';
+require_once __DIR__.'/mail.php';
 methods(['POST']);
 try {
     $body=jsonBody(); $user=currentUser(false);
@@ -23,5 +24,6 @@ try {
         $q=$db->prepare('INSERT INTO people (firstname,lastname,email,phone) VALUES (?,?,?,?)'); $q->execute([$first,$last,$email,$phone]); $person=(int)$db->lastInsertId();
     }
     $q=$db->prepare('INSERT INTO applications (person_id,advertisement_id,message) VALUES (?,?,?)'); $q->execute([$person,$adId,$message]); $id=(int)$db->lastInsertId();
+    notifyApplication($db,$adId);
     $db->commit(); reply(201,['id'=>$id,'person_id'=>$person,'advertisement_id'=>$adId,'message'=>$message,'status'=>'pending']);
 } catch (Throwable $e) { if (isset($db) && $db->inTransaction()) $db->rollBack(); dbFailure($e); }

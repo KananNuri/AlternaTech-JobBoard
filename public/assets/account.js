@@ -28,7 +28,7 @@
         else delete data.current_password;
         const result=await send(session.user?'/api/account':'/api/auth/register',session.user?'PATCH':'POST',data);
         if(!session.user){location.assign(result.redirect);return;}
-        session.user=result.user;form.elements.password.value='';form.elements.current_password.value='';notice.textContent='Account saved.';
+        session.user=result.user;form.elements.password.value='';form.elements.current_password.value='';notice.textContent='Account saved.';document.dispatchEvent(new Event('alternatech:account-saved'));
       } catch(error){notice.textContent=error.message;} finally{button.disabled=false;}
     });
   }

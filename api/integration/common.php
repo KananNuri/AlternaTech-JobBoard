@@ -45,7 +45,8 @@ function profileFor(PDO $db, array $user): int {
 }
 function signIn(PDO $db, array $user): void {
     startSession(); session_regenerate_id(true);
-    $_SESSION = ['account_id'=>(int)$user['id'],'user_id'=>profileFor($db,$user),'csrf_token'=>bin2hex(random_bytes(32)),'expires'=>time()+3600];
+    $q=$db->prepare('SELECT auth_version FROM users WHERE id=?'); $q->execute([$user['id']]);
+    $_SESSION = ['account_id'=>(int)$user['id'],'user_id'=>profileFor($db,$user),'auth_version'=>(int)$q->fetchColumn(),'csrf_token'=>bin2hex(random_bytes(32)),'expires'=>time()+3600];
 }
 function currentUser(bool $required = true): ?array {
     startSession();
@@ -54,9 +55,10 @@ function currentUser(bool $required = true): ?array {
         if ($required) reply(401,['error'=>'Authentication required']);
         return null;
     }
-    $q = database()->prepare('SELECT id,firstname,lastname,email,phone,role FROM users WHERE id=?'); $q->execute([$_SESSION['account_id']]);
+    $q = database()->prepare('SELECT id,firstname,lastname,email,phone,role,email_verified_at,auth_version FROM users WHERE id=?'); $q->execute([$_SESSION['account_id']]);
     $user=$q->fetch();
-    if (!$user) { $_SESSION=[]; if ($required) reply(401,['error'=>'Authentication required']); return null; }
+    if (!$user || (int)$user['auth_version']!==($_SESSION['auth_version']??-1)) { $_SESSION=[]; if ($required) reply(401,['error'=>'Authentication required']); return null; }
+    unset($user['auth_version']);
     $user['person_id']=(int)$_SESSION['user_id'];
     // Aliases preserve Charles's login UI and canonical names support Google/account pages.
     $user['first_name']=$user['firstname']; $user['last_name']=$user['lastname'];

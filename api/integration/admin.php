@@ -74,6 +74,10 @@ try {
         }
         if ($table==='people' && $row['user_id']!==null && ($method==='DELETE' || array_key_exists('user_id',$data))) { $db->rollBack(); reply(409,['error'=>'Manage linked accounts through users; the profile remains linked']); }
         if ($table==='people' && $row['user_id']!==null) {
+            if (isset($data['email']) && $data['email']!==$row['email']) {
+                $db->prepare('UPDATE users SET email_verified_at=NULL WHERE id=?')->execute([$row['user_id']]);
+                $db->prepare('DELETE FROM account_tokens WHERE user_id=?')->execute([$row['user_id']]);
+            }
             $q=$db->prepare('UPDATE users SET '.implode(',',array_map(fn($k)=>"$k=?",array_keys($data))).' WHERE id=?'); $q->execute([...array_values($data),$row['user_id']]);
         }
     }
@@ -89,6 +93,14 @@ try {
         if ($table==='google_identities') $key=$updated['google_sub'];
     }
     if ($table==='users') {
+        if ($method!=='POST' && isset($data['password_hash'])) {
+            $db->prepare('UPDATE users SET auth_version=auth_version+1 WHERE id=?')->execute([$key]);
+            $db->prepare("DELETE FROM account_tokens WHERE user_id=? AND purpose='reset'")->execute([$key]);
+        }
+        if ($method!=='POST' && isset($data['email']) && $data['email']!==$row['email']) {
+            $db->prepare('UPDATE users SET email_verified_at=NULL WHERE id=?')->execute([$key]);
+            $db->prepare('DELETE FROM account_tokens WHERE user_id=?')->execute([$key]);
+        }
         $q=$db->prepare('SELECT id,firstname,lastname,email,phone,role FROM users WHERE id=?'); $q->execute([$key]); profileFor($db,$q->fetch());
     }
     $db->commit(); reply($method==='POST'?201:200,['key'=>$key,'message'=>'Record saved']);

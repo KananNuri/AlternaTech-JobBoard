@@ -43,8 +43,14 @@
   const label=make('label','Category'),select=make('select');select.name='category_id';const all=make('option','All categories');all.value='';select.append(all);label.append(select);filters.append(label);
   const search=make('button','Search');filters.append(search);document.querySelector('#status').before(filters);
   // Shared by the board filters and the recruiter advertisement forms.
-  const categoriesReady=api('/api/categories').catch(()=>[]);
-  categoriesReady.then(categories=>{for(const category of categories){const option=make('option',category.name);option.value=category.id;select.append(option);}});
+  let categoriesRequest;
+  function loadCategories(){
+    return categoriesRequest??=(api('/api/categories').catch(error=>{categoriesRequest=null;throw error;}));
+  }
+  function fillCategories(categories){select.replaceChildren(all);for(const category of categories){const option=make('option',category.name);option.value=category.id;select.append(option);}}
+  const categoryRetry=make('button','Retry categories','secondary');categoryRetry.type='button';categoryRetry.hidden=true;filters.append(categoryRetry);
+  async function refreshCategories(){try{fillCategories(await loadCategories());categoryRetry.hidden=true;}catch{categoryRetry.hidden=false;}}
+  categoryRetry.onclick=refreshCategories;refreshCategories();
   filters.addEventListener('submit',e=>{e.preventDefault();document.dispatchEvent(new CustomEvent('alternatech:filters',{detail:Object.fromEntries(new FormData(filters))}));});
   const activity=make('section',undefined,'app-panel');activity.hidden=true;activity.append(make('h2','My applications'));const activityBody=make('div');activity.append(activityBody);document.querySelector('main').after(activity);
   async function loadApplications(){
@@ -163,7 +169,8 @@
     const open=make('button','New advertisement');open.type='button';tools.append(make('h3','Publish an advertisement'),open);
     open.onclick=async()=>{
       open.hidden=true;recruiterNotice.textContent='';
-      const categories=await categoriesReady,form=adForm(null,categories,companies),{summary,save,cancel,actions}=formControls('Publish advertisement');
+      let categories;try{categories=await loadCategories();fillCategories(categories);}catch{open.hidden=false;announce('Categories could not be loaded. Select New advertisement to retry.');return;}
+      const form=adForm(null,categories,companies),{summary,save,cancel,actions}=formControls('Publish advertisement');
       if(!categories.length){summary.classList.add('error');summary.textContent='Categories are unavailable; reload the page before publishing.';}
       form.append(actions,summary);
       cancel.onclick=()=>{form.remove();open.hidden=false;open.focus();};
@@ -215,7 +222,7 @@
     const opener=[...article.children].find(n=>n.tagName==='BUTTON');
     let current,categories;
     // The recruiter list omits contract_type, so edit from the full advertisement.
-    try{[current,categories]=await Promise.all([api(`/api/ads/${ad.id}`),categoriesReady]);}
+    try{[current,categories]=await Promise.all([api(`/api/ads/${ad.id}`),loadCategories().catch(()=>[])]);}
     catch(error){if(editRequests.get(article)!==request||!article.isConnected)return;loading.classList.add('error');loading.textContent=error.status===404?'This advertisement no longer exists.':error.message;return;}
     if(editRequests.get(article)!==request)return;
     // login.js may have rebuilt the list meanwhile; never attach a form to a card that is gone.

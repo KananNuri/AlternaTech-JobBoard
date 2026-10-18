@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/functions.php';
 require_once dirname(__DIR__,2).'/integration/common.php';
+require_once dirname(__DIR__,2).'/integration/rate-limit.php';
 ini_set('display_errors','0');
 header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');header('X-Content-Type-Options: nosniff');header('Referrer-Policy: no-referrer');
 function googleReply(int $status,array $data): never {http_response_code($status);echo json_encode($data,JSON_THROW_ON_ERROR|JSON_INVALID_UTF8_SUBSTITUTE);exit;}
@@ -9,7 +10,7 @@ $config=googleConfig();
 $secure=str_starts_with($config['redirect'],'https://') || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS']!=='off');
 startSession();
 $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);$method=$_SERVER['REQUEST_METHOD'];
-$routes=['/api/auth/google/start'=>'GET','/api/auth/google/callback'=>'GET','/api/auth/google/session'=>'GET','/api/auth/google/logout'=>'POST'];
+$routes=['/api/auth/google/start'=>'GET','/api/auth/google/callback'=>'GET','/api/auth/google/session'=>'GET','/api/auth/google/logout'=>'POST','/api/auth/google/link'=>'POST'];
 if (!isset($routes[$path])) googleReply(404,['error'=>'Route not found']);
 if ($method!==$routes[$path]) {header('Allow: '.$routes[$path]);googleReply(405,['error'=>'Method not allowed']);}
 if ($path==='/api/auth/google/session') {
@@ -24,9 +25,17 @@ if ($path==='/api/auth/google/logout') {
     $_SESSION=[];session_destroy();setcookie(session_name(),'', ['expires'=>time()-3600,'path'=>'/','secure'=>$secure,'httponly'=>true,'samesite'=>'Lax']);googleReply(200,['message'=>'Signed out']);
 }
 if (!$config['enabled']) googleReply(503,['error'=>'Google login is not configured']);
-if ($path==='/api/auth/google/start') {
+if ($path==='/api/auth/google/start' || $path==='/api/auth/google/link') {
+    $linkUser=null;
+    if ($path==='/api/auth/google/link') {
+        $linkUser=currentUser(); csrf(); $body=jsonBody(8192); accountRateLimits(database(),'google-link',$linkUser['email']);
+        $q=database()->prepare('SELECT password_hash FROM users WHERE id=?'); $q->execute([$linkUser['id']]);
+        if (!is_string($body['current_password']??null) || strlen($body['current_password'])>72 || !password_verify($body['current_password'],$q->fetchColumn())) googleReply(403,['error'=>'Current password required to link Google']);
+    }
     $pending=['state'=>bin2hex(random_bytes(32)),'nonce'=>bin2hex(random_bytes(32)),'verifier'=>bin2hex(random_bytes(32)),'created'=>time()];$_SESSION['google_pending']=$pending;
+    if ($linkUser) { $pending['link_account_id']=(int)$linkUser['id']; $pending['auth_version']=$_SESSION['auth_version']; $_SESSION['google_pending']=$pending; }
     $url='https://accounts.google.com/o/oauth2/v2/auth?'.http_build_query(['client_id'=>$config['client'],'redirect_uri'=>$config['redirect'],'response_type'=>'code','scope'=>'openid email profile','state'=>$pending['state'],'nonce'=>$pending['nonce'],'code_challenge'=>rtrim(strtr(base64_encode(hash('sha256',$pending['verifier'],true)),'+/','-_'),'='),'code_challenge_method'=>'S256','prompt'=>'select_account']);
+    if ($linkUser) googleReply(200,['url'=>$url]);
     header('Location: '.$url,true,302);exit;
 }
 $pending=$_SESSION['google_pending'] ?? [];unset($_SESSION['google_pending']);
@@ -37,6 +46,12 @@ if (!is_string($code) || $code==='' || strlen($code)>4096) googleReply(400,['err
 try {
     $tokens=googleHttp('https://oauth2.googleapis.com/token',['grant_type'=>'authorization_code','code'=>$code,'client_id'=>$config['client'],'client_secret'=>$config['secret'],'redirect_uri'=>$config['redirect'],'code_verifier'=>$pending['verifier']]);
     $claims=googleClaimsFromExchange($tokens['id_token'] ?? '',$config['client'],$pending['nonce'],time());
+    if (isset($pending['link_account_id'])) {
+        $user=currentUser();
+        if ((int)$user['id']!==$pending['link_account_id'] || $_SESSION['auth_version']!==$pending['auth_version']) googleReply(403,['error'=>'Sign in again before linking Google']);
+        linkGoogleUser(database(),$user,$claims,$pending['auth_version']); signIn(database(),$user);
+        header('Location: /account.php?linked=google',true,303); exit;
+    }
     $user=googleUser(database(),$claims);
     signIn(database(),$user);
     header('Location: '.($user['role']==='admin'?'/admin.php':'/?google_login=success'),true,303);exit;

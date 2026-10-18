@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/database.php';
+require_once dirname(__DIR__) . '/integration/mail.php';
 
 ini_set('display_errors', '0');
 
@@ -126,16 +127,20 @@ if ($method === 'PATCH') {
             respond(404, ['error' => 'Application not found']);
         }
 
+        $db->beginTransaction();
         $update = $db->prepare(
             'UPDATE applications SET status = ? WHERE id = ?'
         );
         $update->execute([$status, $applicationId]);
+        if ($update->rowCount()>0) notifyApplicationStatus($db,$applicationId,$status);
+        $db->commit();
 
         respond(200, [
             'application_id' => $applicationId,
             'status' => $status,
         ]);
     } catch (Throwable $e) {
+        if (isset($db) && $db->inTransaction()) $db->rollBack();
         error_log('Application status update failure: ' . get_class($e));
         respond(500, ['error' => 'Unable to update application status']);
     }

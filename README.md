@@ -4,7 +4,7 @@ A PHP/PDO/MySQL job board by Kanan and Charles for technology opportunities in F
 
 ## Install and run
 
-Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enable `curl` for optional Google/France Travail integrations and `mbstring` for the importer. No Node packages are needed; Node 20+ is used only for HTTP tests.
+Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enable `curl` for optional Google/France Travail integrations, `mbstring` for the importer and `openssl` for SMTP/TLS. Run `composer install` to install PHPMailer from the lockfile. No Node packages are needed; Node 20+ is used only for tests.
 
 1. Copy `.env.example` to `.env` and set the five `DB_*` variables. Keep credentials private.
 2. With a setup DB user allowed to CREATE/ALTER tables, initialize a fresh demo database through the PHP backend:
@@ -34,15 +34,15 @@ Requirements: PHP 8.4+, PDO with `pdo_mysql`, and MariaDB 10.6+ or MySQL 8. Enab
 
 - `/`: paginated board, keyword/location/category filters, detail fetch without reload/popup, and Apply on every card. Guests provide details in an inline form; signed-in users reuse their profile.
 - `/login.php`: email/password and optional Google sign-in. Admins go to administration; others return to the board.
-- `/account.php`: create/edit first/last name, email, phone and password. Email/password changes require the current local password. Google-only accounts can edit name/phone; verified account linking/password recovery is a future feature.
+- `/account.php`: create/edit first/last name, email, phone and password. Email/password changes require the current local password. Google-only accounts can edit name/phone; email recovery can establish a local password when email is configured. Account security provides verification emails and explicit Google linking with current-password confirmation.
 - `/admin.php`: server-protected administration with paginated CRUD for all eight tables, relationship checks and inline deletion confirmation. Active admins cannot delete/demote themselves. Manage linked profiles through their user account.
 - Charles's existing recruiter panel remains on the board. integration.js supplies its missing Edit callback and lets recruiters publish, fully edit and delete advertisements for their assigned companies (deletion is confirmed inline and also removes the advertisement's applications); validation errors are shown next to the affected fields, while authorization, session and other errors are shown in the form's message area. Recruiters can also see candidate contacts/messages and change statuses within their companies.
 
-Applications/messages are saved in SQL and visible to authorized recruiters/admins. No SMTP service is configured; the app does not claim to send email.
+Applications/messages are saved in SQL and visible to authorized recruiters/admins. Optional SMTP delivery queues account verification/recovery and application notifications. Configure it and schedule the mail worker as described in [account services](docs/account-services.md); without configuration, applications still save normally and no email delivery is claimed.
 
 ## Database and sessions
 
-`users` stores canonical accounts, password hashes and user/admin roles. `people` stores applicant/recruiter profiles, with nullable `user_id` for guests and one linked profile per account. Other tables: `companies`, `categories`, `advertisements`, `applications`, `company_members`, `google_identities`.
+`users` stores canonical accounts, password hashes and user/admin roles. `people` stores applicant/recruiter profiles, with nullable `user_id` for guests and one linked profile per account. Other core tables: `companies`, `categories`, `advertisements`, `applications`, `company_members`, `google_identities`. Internal service tables are `auth_rate_limits`, `account_tokens`, `mail_outbox`; they are excluded from browser admin CRUD.
 
 Account and profile IDs differ. The integrated session stores `account_id = users.id` and legacy `user_id = people.id` to preserve Charles's handlers. Memberships and ad creators reference profile IDs. Assign recruiter company memberships in the admin panel. `application_date` is a generated alias for `created_at`. A unique `(person_id, advertisement_id)` prevents duplicate authenticated applications. Guest profiles are separate and never automatically linked by email.
 
@@ -79,7 +79,7 @@ Recruiter ad creation/replacement retains Charles's required title, summary, des
 
 [Google setup](docs/google-login.md). Real Google consent/exchange needs your OAuth credentials. Tests use dummy redirect configuration and synthetic claims without claiming real provider authentication.
 
-France Travail: set its environment variables, enable curl/mbstring, and run `php api/integrations/france-travail/sync.php informatique`. The importer fetches one bounded batch of up to 50 offers; repeated `(source, external_id)` imports update existing records. Provider pagination/scheduling are optional bonuses outside the supplied mandatory specification.
+France Travail: set its environment variables, enable curl/mbstring, and run `php api/integrations/france-travail/sync.php informatique`. The importer paginates in batches of 50 up to `FRANCE_TRAVAIL_MAX_OFFERS` (default 1000), reports truncation, and updates repeated `(source, external_id)` records. An optional daily GitHub workflow and server-cron sample are included; see [configuration and scheduling](docs/account-services.md).
 
 ## Tests
 
@@ -88,6 +88,7 @@ Get-ChildItem api,public,tools,tests -Recurse -Filter *.php | ForEach-Object { p
 Get-ChildItem public/assets -Filter *.js | ForEach-Object { node --check $_.FullName }
 php tests/ads-validation.php
 php tests/google-auth.php
+node tests/board-races.cjs
 ```
 
 Use **only an isolated disposable DB/server** with 20 demo offers for integration tests:
@@ -108,3 +109,16 @@ The gitignored fixture file contains random test credentials and only example.in
 Charles's unchanged `applications-http.cjs` expects canonical Alice/Bob IDs 1/3, company TechNova and application 3. For this test, initialize a separate fresh disposable database named `alternatech_authorization_test`, set `INTEGRATION_TEST_DB=1` and a test-only `TEST_FIXTURE_PASSWORD`, then run `php tests/charles-authorization-fixtures.php`. Run a separate local server against that DB. Set `TEST_RECRUITER_EMAIL=alice@example.invalid`, `TEST_USER_EMAIL=bob@example.invalid`, both corresponding password variables to `TEST_FIXTURE_PASSWORD`, and `TEST_API_URL` to that server before running the original test. These synthetic fixtures never overwrite an existing account database.
 
 [Requirement audit](docs/integration-audit.md).
+
+## Account services and automated checks
+
+[Setup, recovery, verification, Google linking, SMTP worker, scheduled sync and API additions](docs/account-services.md). Run `php tools/migrate.php` after upgrading; existing browser sessions must sign in again. The CI workflow uses an isolated MariaDB service and a synthetic SMTP sink.
+
+After the standard integration suite, with `INTEGRATION_TEST_DB=1` and the disposable server configured with the dummy Google and SMTP settings from CI, run:
+
+```powershell
+php tests/france-travail-db.php
+node tests/security-http.cjs
+```
+
+The security suite reads its own synthetic mail links through a CLI-only, `*_test`-guarded fixture helper and never contacts real email recipients or Google. The historical audit is a record of the October 12 baseline, not a certification of later changes.

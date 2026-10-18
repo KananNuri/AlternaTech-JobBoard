@@ -1,6 +1,6 @@
 "use strict";
 const jobs = document.querySelector('#jobs'), details = document.querySelector('#details'), status = document.querySelector('#status'), retry = document.querySelector('#retry');
-let controller;
+let controller, boardController;
 let boardPage=1, boardFilters={};
 function el(tag, text, className) {
   const node = document.createElement(tag); node.textContent = text ?? ''; if (className) node.className = className; return node;
@@ -24,24 +24,27 @@ async function showDetails(id) {
     // Charles can subscribe to this event without coupling Apply to this renderer.
     document.dispatchEvent(new CustomEvent('alternatech:ad-selected',{detail:{advertisement:ad}}));
     details.focus();
+    return ad;
   } catch(error) { if(error.name === 'AbortError') return; details.replaceChildren(el('p',error.message)); const button=el('button','Retry details'); button.onclick=()=>showDetails(id); details.append(button); }
   finally { if (controller === current) details.removeAttribute('aria-busy'); }
 }
 async function load() {
+  boardController?.abort(); boardController = new AbortController(); const request = boardController;
   retry.hidden=true; status.textContent='Loading opportunities…'; jobs.replaceChildren();
   try {
     const params=new URLSearchParams({...boardFilters,page:boardPage,per_page:10});
-    const result = await get('/api/catalog/ads?'+params);
+    const result = await get('/api/catalog/ads?'+params, request.signal);
+    if (boardController !== request) return;
     const ads=result.items;
     status.textContent=result.total ? `${result.total} opportunities to explore` : 'No opportunities match your search.';
     for(const ad of ads) {
       const card=el('article',null,'card'); card.append(el('p',ad.contract_type || 'Opportunity','badge'),el('h2',ad.title),el('p',`${ad.company} · ${ad.location}`,'meta'),el('p',ad.short_description));
       const button=el('button','Learn More'); button.setAttribute('aria-label',`Learn More: ${ad.title}`); button.onclick=()=>showDetails(ad.id);
-      const apply=el('button','Apply');apply.setAttribute('aria-label',`Apply: ${ad.title}`);apply.onclick=async()=>{await showDetails(ad.id);document.dispatchEvent(new CustomEvent('alternatech:apply',{detail:{advertisement:ad}}));};
+      const apply=el('button','Apply');apply.setAttribute('aria-label',`Apply: ${ad.title}`);apply.onclick=async()=>{const selected=await showDetails(ad.id);if(selected)document.dispatchEvent(new CustomEvent('alternatech:apply',{detail:{advertisement:selected}}));};
       const actions=el('div',null,'actions');actions.append(button,apply);card.append(actions); jobs.append(card);
     }
     renderPagination(result);
-  } catch(error) {status.textContent=error.message; retry.hidden=false;}
+  } catch(error) {if(error.name==='AbortError'||boardController!==request)return;status.textContent=error.message; retry.hidden=false;}
 }
 retry.onclick=load; load();
 function renderPagination(result){

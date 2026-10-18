@@ -15,6 +15,20 @@ function envValue(string $key, string $default = ''): string {
     $value = getenv($key);
     return $value === false ? ($values[$key] ?? $default) : $value;
 }
+function databaseOptions(): array {
+    $options=[
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ];
+    $ca=envValue('DB_SSL_CA');
+    if ($ca!=='') {
+        if (!is_file($ca)) throw new RuntimeException('Database CA certificate missing');
+        $options[PDO::MYSQL_ATTR_SSL_CA]=$ca;
+        $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT]=true;
+    }
+    return $options;
+}
 function database(): PDO {
     static $pdo = null;
     if ($pdo instanceof PDO) return $pdo;
@@ -22,9 +36,7 @@ function database(): PDO {
     $port = envValue('DB_PORT', '3306');
     $name = envValue('DB_NAME', 'alternatech');
     if (!preg_match('/^[a-zA-Z0-9_.-]+$/', $host) || !ctype_digit($port) || !preg_match('/^[a-zA-Z0-9_]+$/', $name)) throw new RuntimeException('Invalid database configuration');
-    return $pdo = new PDO("mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4", envValue('DB_USER', 'alternatech'), envValue('DB_PASSWORD'), [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4", envValue('DB_USER', 'alternatech'), envValue('DB_PASSWORD'), databaseOptions());
+    $pdo->exec("SET time_zone = '+00:00'");
+    return $pdo;
 }

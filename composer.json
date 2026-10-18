@@ -1,0 +1,7 @@
+{
+  "name": "alternatech/jobboard",
+  "description": "AlternaTech PHP job board",
+  "type": "project",
+  "require": {"php": ">=8.4", "phpmailer/phpmailer": "^7.0"},
+  "config": {"allow-plugins": false, "sort-packages": true}
+}

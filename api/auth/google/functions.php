@@ -59,7 +59,7 @@ function googleUser(PDO $db, array $claims): array {
         $first=is_string($claims['given_name'] ?? null) ? $claims['given_name'] : 'Google';
         $last=is_string($claims['family_name'] ?? null) ? $claims['family_name'] : 'User';
         // No password is exposed or chosen by the Google user; only a random unusable hash.
-        $q=$db->prepare('INSERT INTO users (firstname,lastname,email,password_hash,role) VALUES (?,?,?,?,\'user\')');
+        $q=$db->prepare('INSERT INTO users (firstname,lastname,email,password_hash,role,email_verified_at) VALUES (?,?,?,?,\'user\',UTC_TIMESTAMP())');
         $q->execute([iconv_substr($first,0,100,'UTF-8'),iconv_substr($last,0,100,'UTF-8'),$claims['email'],password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT)]);
         $id=(int)$db->lastInsertId();
         $q=$db->prepare('INSERT INTO google_identities (google_sub,user_id) VALUES (?,?)');$q->execute([$claims['sub'],$id]);
@@ -71,6 +71,26 @@ function googleUser(PDO $db, array $claims): array {
             if ($user=$q->fetch()) return $user;
             throw new GoogleAccountConflict('Explicit account linking required');
         }
+        throw $e;
+    }
+}
+
+function linkGoogleUser(PDO $db, array $user, array $claims, ?int $expectedVersion=null): void {
+    $db->beginTransaction();
+    try {
+        $q=$db->prepare('SELECT id,auth_version FROM users WHERE id=? FOR UPDATE'); $q->execute([$user['id']]);
+        $account=$q->fetch();
+        if (!$account || ($expectedVersion!==null && (int)$account['auth_version']!==$expectedVersion)) throw new GoogleAccountConflict('Account changed; authenticate again');
+        $q=$db->prepare('SELECT google_sub,user_id FROM google_identities WHERE google_sub=? OR user_id=? FOR UPDATE'); $q->execute([$claims['sub'],$user['id']]);
+        $rows=$q->fetchAll();
+        foreach ($rows as $row) if ((int)$row['user_id']!==(int)$user['id'] || $row['google_sub']!==$claims['sub']) throw new GoogleAccountConflict('This account or Google identity is already linked');
+        if (!$rows) $db->prepare('INSERT INTO google_identities (google_sub,user_id) VALUES (?,?)')->execute([$claims['sub'],$user['id']]);
+        // Google proves ownership only of its own verified email, not an unrelated account address.
+        if (strcasecmp($user['email'],$claims['email'])===0) $db->prepare('UPDATE users SET email_verified_at=UTC_TIMESTAMP() WHERE id=?')->execute([$user['id']]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        if ($e instanceof PDOException && $e->getCode()==='23000') throw new GoogleAccountConflict('Google identity already linked');
         throw $e;
     }
 }

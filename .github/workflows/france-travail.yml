@@ -1,0 +1,45 @@
+name: France Travail scheduled sync
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: france-travail-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DB_HOST: ${{ secrets.SYNC_DB_HOST }}
+      DB_PORT: ${{ secrets.SYNC_DB_PORT }}
+      DB_NAME: ${{ secrets.SYNC_DB_NAME }}
+      DB_USER: ${{ secrets.SYNC_DB_USER }}
+      DB_PASSWORD: ${{ secrets.SYNC_DB_PASSWORD }}
+      SYNC_DB_CA_PEM: ${{ secrets.SYNC_DB_CA_PEM }}
+      DB_SSL_CA: /tmp/alternatech-db-ca.pem
+      FRANCE_TRAVAIL_CLIENT_ID: ${{ secrets.FRANCE_TRAVAIL_CLIENT_ID }}
+      FRANCE_TRAVAIL_CLIENT_SECRET: ${{ secrets.FRANCE_TRAVAIL_CLIENT_SECRET }}
+    steps:
+      - name: Check optional configuration
+        id: config
+        shell: bash
+        run: |
+          if [[ -n "$DB_HOST" && -n "$DB_PORT" && -n "$DB_NAME" && -n "$DB_USER" && -n "$SYNC_DB_CA_PEM" && -n "$FRANCE_TRAVAIL_CLIENT_ID" && -n "$FRANCE_TRAVAIL_CLIENT_SECRET" ]]; then
+            printf '%s' "$SYNC_DB_CA_PEM" > "$DB_SSL_CA"
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Optional sync is not configured; skipping.'
+          fi
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.enabled == 'true'
+      - uses: shivammathur/setup-php@v2
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, curl, mbstring
+          coverage: none
+      - run: php api/integrations/france-travail/sync.php informatique
+        if: steps.config.outputs.enabled == 'true'

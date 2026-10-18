@@ -60,8 +60,11 @@ async function loadRecruiterCompanies() {
       section.append(title, adsContainer);
       recruiterCompanies.append(section);
 
+      let companyPage = 1, companyRequest = 0;
+      async function loadCompanyAds() {
+      const request = ++companyRequest;
       try {
-        const adsResponse = await fetch("/api/companies/mine/ads", {
+        const adsResponse = await fetch(`/api/recruiter/ads?company_id=${company.id}&page=${companyPage}&per_page=10`, {
           headers: { Accept: "application/json" },
           credentials: "same-origin"
         });
@@ -70,16 +73,16 @@ async function loadRecruiterCompanies() {
           throw new Error("Unable to load advertisements.");
         }
 
-        const ads = await adsResponse.json();
-        const companyAds = ads.filter(
-          (ad) => Number(ad.company_id) === Number(company.id)
-        );
+        const result = await adsResponse.json();
+        if (request !== companyRequest) return;
+        if (result.page > result.pages) { companyPage = result.pages; return loadCompanyAds(); }
+        const companyAds = result.items;
 
         adsContainer.replaceChildren();
 
         if (companyAds.length === 0) {
           adsContainer.textContent = "No advertisements published yet.";
-          continue;
+          return;
         }
 
         for (const ad of companyAds) {
@@ -106,10 +109,23 @@ async function loadRecruiterCompanies() {
           article.append(adTitle, location, category, editButton);
           adsContainer.append(article);
         }
+        const navigation = document.createElement('nav');
+        navigation.className = 'pagination';
+        navigation.setAttribute('aria-label', `Advertisements for ${company.name}`);
+        const previous = document.createElement('button'), next = document.createElement('button'), count = document.createElement('span');
+        previous.textContent = 'Previous'; next.textContent = 'Next'; count.textContent = `Page ${result.page} of ${result.pages}`;
+        previous.disabled = result.page <= 1; next.disabled = result.page >= result.pages;
+        previous.onclick = () => { companyPage--; loadCompanyAds(); };
+        next.onclick = () => { companyPage++; loadCompanyAds(); };
+        navigation.append(previous, count, next); adsContainer.append(navigation);
+
       } catch {
+        if (request !== companyRequest) return;
         adsContainer.textContent =
           "Unable to load advertisements. Please try again.";
       }
+      }
+      await loadCompanyAds();
     }
   } catch {
     recruiterStatus.textContent =

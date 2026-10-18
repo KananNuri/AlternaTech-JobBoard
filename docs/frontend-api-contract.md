@@ -407,3 +407,7 @@ Un `204` ne contient aucun JSON : le frontend ne doit pas essayer de parser son 
 3. `/api/companies/mine/applications` renvoie les candidatures sans pagination ; `/api/recruiter/applications` fournit les coordonnées des candidats et une pagination.
 4. `POST /api/ads/{id}/applications` accepte les visiteurs dans le routeur intégré ; le handler historique de candidature attend un profil authentifié.
 5. Le frontend doit respecter les contrats existants et ne pas inventer de comportement côté serveur.
+
+## 12. Account-service additions
+
+See [account services](account-services.md#added-api-contracts) for password recovery, email verification, explicit Google linking and the paginated recruiter advertisement route. Existing raw-array endpoints remain supported.
